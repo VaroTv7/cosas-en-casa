@@ -13,7 +13,7 @@ import {
     type Container,
     type Item
 } from '../services/api';
-import { Plus, Trash2, Box, Home, X, Settings } from 'lucide-react';
+import { Plus, Trash2, Box, Home, X, Settings, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 interface Props {
     onSelectItem?: (item: Item) => void;
@@ -27,11 +27,19 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
     const [dragging, setDragging] = useState<{ type: 'room' | 'container', id: number, offsetX: number, offsetY: number } | null>(null);
-    const [resizing, setResizing] = useState<{ id: number, startX: number, startY: number, startW: number, startH: number } | null>(null);
+    const [resizing, setResizing] = useState<{ type: 'room' | 'container', id: number, startX: number, startY: number, startW: number, startH: number } | null>(null);
     const [showAddRoom, setShowAddRoom] = useState(false);
     const [showAddContainer, setShowAddContainer] = useState(false);
     const [selectedContainerItems, setSelectedContainerItems] = useState<{ container: Container; items: Item[] } | null>(null);
+
+    // Zoom and pan state
+    const [zoom, setZoom] = useState(1);
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
+
     const canvasRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         loadData();
@@ -72,7 +80,9 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                 container_id: containerId,
                 room_layout_id: roomLayoutId,
                 x: 20,
-                y: 20
+                y: 20,
+                width: 70,
+                height: 70
             });
             await loadData();
             setShowAddContainer(false);
@@ -102,7 +112,6 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
     };
 
     const handleContainerClick = (containerId: number) => {
-        // Find the container and its items from inventory
         for (const space of inventory) {
             const container = space.containers.find(c => c.id === containerId);
             if (container) {
@@ -112,8 +121,43 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         }
     };
 
+    // Zoom controls
+    const handleZoomIn = () => setZoom(z => Math.min(2, z + 0.2));
+    const handleZoomOut = () => setZoom(z => Math.max(0.3, z - 0.2));
+    const handleResetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+
+    // Pan handlers
+    const handlePanStart = (e: React.MouseEvent | React.TouchEvent) => {
+        if (editMode) return; // Don't pan in edit mode
+        setIsPanning(true);
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        setLastPanPos({ x: clientX, y: clientY });
+    };
+
+    const handlePanMove = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isPanning) return;
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        setPan(p => ({
+            x: p.x + (clientX - lastPanPos.x),
+            y: p.y + (clientY - lastPanPos.y)
+        }));
+        setLastPanPos({ x: clientX, y: clientY });
+    };
+
+    const handlePanEnd = () => setIsPanning(false);
+
+    // Wheel zoom
+    const handleWheel = (e: React.WheelEvent) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom(z => Math.min(2, Math.max(0.3, z + delta)));
+    };
+
     const handleMouseDown = (e: React.MouseEvent, type: 'room' | 'container', id: number) => {
         if (!editMode) return;
+        e.stopPropagation();
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
 
@@ -126,8 +170,8 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         setDragging({
             type,
             id,
-            offsetX: e.clientX - rect.left - item.x,
-            offsetY: e.clientY - rect.top - item.y
+            offsetX: (e.clientX - rect.left) / zoom - item.x,
+            offsetY: (e.clientY - rect.top) / zoom - item.y
         });
     };
 
@@ -135,8 +179,8 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         if (!dragging || !canvasRef.current) return;
 
         const rect = canvasRef.current.getBoundingClientRect();
-        const newX = Math.max(0, e.clientX - rect.left - dragging.offsetX);
-        const newY = Math.max(0, e.clientY - rect.top - dragging.offsetY);
+        const newX = Math.max(0, (e.clientX - rect.left) / zoom - dragging.offsetX);
+        const newY = Math.max(0, (e.clientY - rect.top) / zoom - dragging.offsetY);
 
         if (dragging.type === 'room' && floorPlan) {
             setFloorPlan({
@@ -177,63 +221,157 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         setDragging(null);
     };
 
-    const handleResizeStart = (e: React.MouseEvent, roomId: number) => {
+    const handleResizeStart = (e: React.MouseEvent, type: 'room' | 'container', id: number) => {
         e.stopPropagation();
         if (!editMode) return;
 
-        const room = floorPlan?.rooms.find(r => r.id === roomId);
-        if (!room) return;
+        const item = type === 'room'
+            ? floorPlan?.rooms.find(r => r.id === id)
+            : floorPlan?.containers.find(c => c.id === id);
+        if (!item) return;
 
         setResizing({
-            id: roomId,
+            type,
+            id,
             startX: e.clientX,
             startY: e.clientY,
-            startW: room.width,
-            startH: room.height
+            startW: (item as any).width || 60,
+            startH: (item as any).height || 60
         });
     };
 
     const handleResizeMove = (e: React.MouseEvent) => {
         if (!resizing || !floorPlan) return;
 
-        const deltaX = e.clientX - resizing.startX;
-        const deltaY = e.clientY - resizing.startY;
-        const newW = Math.max(80, resizing.startW + deltaX);
-        const newH = Math.max(60, resizing.startH + deltaY);
+        const deltaX = (e.clientX - resizing.startX) / zoom;
+        const deltaY = (e.clientY - resizing.startY) / zoom;
+        const newW = Math.max(40, resizing.startW + deltaX);
+        const newH = Math.max(40, resizing.startH + deltaY);
 
-        setFloorPlan({
-            ...floorPlan,
-            rooms: floorPlan.rooms.map(r =>
-                r.id === resizing.id ? { ...r, width: newW, height: newH } : r
-            )
-        });
+        if (resizing.type === 'room') {
+            setFloorPlan({
+                ...floorPlan,
+                rooms: floorPlan.rooms.map(r =>
+                    r.id === resizing.id ? { ...r, width: newW, height: newH } : r
+                )
+            });
+        } else {
+            setFloorPlan({
+                ...floorPlan,
+                containers: floorPlan.containers.map(c =>
+                    c.id === resizing.id ? { ...c, width: newW, height: newH } : c
+                )
+            });
+        }
     };
 
     const handleResizeEnd = async () => {
         if (!resizing || !floorPlan) return;
 
-        const room = floorPlan.rooms.find(r => r.id === resizing.id);
-        if (room) {
-            try {
-                await updateRoomLayout(room.id, { width: room.width, height: room.height });
-            } catch (err) {
-                console.error('Error saving size:', err);
+        try {
+            if (resizing.type === 'room') {
+                const room = floorPlan.rooms.find(r => r.id === resizing.id);
+                if (room) {
+                    await updateRoomLayout(room.id, { width: room.width, height: room.height });
+                }
+            } else {
+                const container = floorPlan.containers.find(c => c.id === resizing.id);
+                if (container) {
+                    await updateContainerPosition(container.id, {
+                        width: (container as any).width || 60,
+                        height: (container as any).height || 60
+                    });
+                }
             }
+        } catch (err) {
+            console.error('Error saving size:', err);
         }
 
         setResizing(null);
     };
 
-    // Get spaces not yet on the floor plan
     const availableSpaces = inventory.filter(
         s => !floorPlan?.rooms.some(r => r.space_id === s.id)
     );
 
-    // Get containers not yet on the floor plan
     const availableContainers = inventory.flatMap(s =>
         s.containers.filter(c => !floorPlan?.containers.some(cp => cp.container_id === c.id))
             .map(c => ({ ...c, spaceName: s.name }))
     );
+
+    // Render a container (furniture) element
+    const renderContainer = (container: any, inRoom: boolean = false) => {
+        const w = container.width || 60;
+        const h = container.height || 60;
+
+        return (
+            <div
+                key={`container-${container.id}`}
+                onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'container', container.id); }}
+                onClick={(e) => { e.stopPropagation(); !editMode && handleContainerClick(container.container_id); }}
+                style={{
+                    position: 'absolute',
+                    left: container.x,
+                    top: inRoom ? container.y + 28 : container.y,
+                    width: w,
+                    height: h,
+                    background: 'var(--glass-bg)',
+                    border: editMode ? '2px dashed var(--accent)' : '1px solid var(--glass-border)',
+                    borderRadius: '8px',
+                    cursor: editMode ? 'move' : 'pointer',
+                    userSelect: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10,
+                    overflow: 'hidden'
+                }}
+            >
+                <Box size={Math.min(w, h) * 0.35} style={{ opacity: 0.8 }} />
+                <div style={{
+                    fontSize: `${Math.max(8, Math.min(12, w * 0.12))}px`,
+                    maxWidth: w - 8,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                    marginTop: '2px'
+                }}>
+                    {container.container_name}
+                </div>
+
+                {editMode && (
+                    <>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
+                            style={{
+                                position: 'absolute', top: -6, right: -6,
+                                padding: '3px', background: '#ef4444', borderRadius: '50%',
+                                width: '18px', height: '18px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}
+                        >
+                            <X size={10} />
+                        </button>
+                        <div
+                            onMouseDown={(e) => handleResizeStart(e, 'container', container.id)}
+                            style={{
+                                position: 'absolute',
+                                right: 0,
+                                bottom: 0,
+                                width: 12,
+                                height: 12,
+                                cursor: 'se-resize',
+                                background: 'var(--accent)',
+                                borderRadius: '0 0 6px 0'
+                            }}
+                        />
+                    </>
+                )}
+            </div>
+        );
+    };
 
     if (loading) {
         return <div style={{ textAlign: 'center', padding: '2rem' }}>Cargando plano...</div>;
@@ -242,21 +380,34 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
     return (
         <div style={{ padding: '1rem' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <h2 style={{ margin: 0 }}>
                     <Home size={24} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
                     {floorPlan?.plan.name || 'Mi Casa'}
                 </h2>
-                <button
-                    onClick={() => setEditMode(!editMode)}
-                    style={{
-                        background: editMode ? 'var(--primary)' : 'var(--glass-border)',
-                        display: 'flex', alignItems: 'center', gap: '5px'
-                    }}
-                >
-                    <Settings size={16} />
-                    {editMode ? 'Editando' : 'Editar'}
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {/* Zoom controls */}
+                    <button onClick={handleZoomOut} style={{ padding: '6px 10px', background: 'var(--glass-border)' }} title="Alejar">
+                        <ZoomOut size={16} />
+                    </button>
+                    <span style={{ fontSize: '0.8em', minWidth: '40px', textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+                    <button onClick={handleZoomIn} style={{ padding: '6px 10px', background: 'var(--glass-border)' }} title="Acercar">
+                        <ZoomIn size={16} />
+                    </button>
+                    <button onClick={handleResetView} style={{ padding: '6px 10px', background: 'var(--glass-border)' }} title="Resetear vista">
+                        <Maximize2 size={16} />
+                    </button>
+                    <button
+                        onClick={() => setEditMode(!editMode)}
+                        style={{
+                            background: editMode ? 'var(--primary)' : 'var(--glass-border)',
+                            display: 'flex', alignItems: 'center', gap: '5px'
+                        }}
+                    >
+                        <Settings size={16} />
+                        {editMode ? 'Editando' : 'Editar'}
+                    </button>
+                </div>
             </div>
 
             {/* Edit mode toolbar */}
@@ -268,177 +419,127 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                     <button onClick={() => setShowAddContainer(true)} style={{ background: 'var(--secondary)', fontSize: '0.85em' }}>
                         <Plus size={14} style={{ marginRight: '3px' }} /> Añadir Mueble
                     </button>
+                    <span style={{ fontSize: '0.75em', opacity: 0.6, alignSelf: 'center' }}>
+                        Arrastra esquina inferior derecha para redimensionar
+                    </span>
                 </div>
             )}
 
-            {/* Floor plan canvas */}
+            {/* Floor plan canvas wrapper (for pan) */}
             <div
-                ref={canvasRef}
-                onMouseMove={resizing ? handleResizeMove : handleMouseMove}
-                onMouseUp={resizing ? handleResizeEnd : handleMouseUp}
-                onMouseLeave={resizing ? handleResizeEnd : handleMouseUp}
+                ref={containerRef}
+                onMouseDown={!editMode ? handlePanStart : undefined}
+                onMouseMove={isPanning ? handlePanMove : undefined}
+                onMouseUp={handlePanEnd}
+                onMouseLeave={handlePanEnd}
+                onTouchStart={!editMode ? handlePanStart : undefined}
+                onTouchMove={isPanning ? handlePanMove : undefined}
+                onTouchEnd={handlePanEnd}
+                onWheel={handleWheel}
                 style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '70vh',
-                    minHeight: '500px',
-                    background: floorPlan?.plan.background_color || '#1a1a2e',
-                    borderRadius: '12px',
                     overflow: 'hidden',
-                    border: editMode ? '2px dashed var(--primary)' : '1px solid var(--glass-border)'
+                    borderRadius: '12px',
+                    border: editMode ? '2px dashed var(--primary)' : '1px solid var(--glass-border)',
+                    cursor: isPanning ? 'grabbing' : (editMode ? 'default' : 'grab')
                 }}
             >
-                {/* Rooms */}
-                {floorPlan?.rooms.map(room => (
-                    <div
-                        key={`room-${room.id}`}
-                        onMouseDown={(e) => handleMouseDown(e, 'room', room.id)}
-                        style={{
-                            position: 'absolute',
-                            left: room.x,
-                            top: room.y,
-                            width: room.width,
-                            height: room.height,
-                            background: room.color + '40',
-                            border: `2px solid ${room.color}`,
-                            borderRadius: '8px',
-                            cursor: editMode ? 'move' : 'default',
-                            userSelect: 'none'
-                        }}
-                    >
-                        <div style={{
-                            padding: '5px 8px',
-                            background: room.color,
-                            color: 'white',
-                            fontSize: '0.75em',
-                            fontWeight: 'bold',
-                            borderRadius: '6px 6px 0 0',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                            <span>{room.space_name}</span>
-                            {editMode && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room.id); }}
-                                    style={{ padding: '2px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}
-                                >
-                                    <Trash2 size={12} />
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Containers inside this room */}
-                        {floorPlan?.containers
-                            .filter(c => c.room_layout_id === room.id)
-                            .map(container => (
-                                <div
-                                    key={`container-${container.id}`}
-                                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'container', container.id); }}
-                                    onClick={(e) => { e.stopPropagation(); !editMode && handleContainerClick(container.container_id); }}
-                                    style={{
-                                        position: 'absolute',
-                                        left: container.x,
-                                        top: container.y + 30, // offset for room header
-                                        padding: '8px',
-                                        background: 'var(--glass-bg)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: '8px',
-                                        cursor: editMode ? 'move' : 'pointer',
-                                        userSelect: 'none',
-                                        minWidth: '60px',
-                                        textAlign: 'center',
-                                        zIndex: 10
-                                    }}
-                                >
-                                    <Box size={20} style={{ margin: '0 auto 4px' }} />
-                                    <div style={{ fontSize: '0.7em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {container.container_name}
-                                    </div>
-                                    {editMode && (
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
-                                            style={{
-                                                position: 'absolute', top: -5, right: -5,
-                                                padding: '2px', background: '#ef4444', borderRadius: '50%'
-                                            }}
-                                        >
-                                            <X size={10} />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-
-                        {/* Resize handle */}
-                        {editMode && (
-                            <div
-                                onMouseDown={(e) => handleResizeStart(e, room.id)}
-                                style={{
-                                    position: 'absolute',
-                                    right: 0,
-                                    bottom: 0,
-                                    width: 15,
-                                    height: 15,
-                                    cursor: 'se-resize',
-                                    background: room.color,
-                                    borderRadius: '0 0 6px 0'
-                                }}
-                            />
-                        )}
-                    </div>
-                ))}
-
-                {/* Containers without room (floating) */}
-                {floorPlan?.containers
-                    .filter(c => !c.room_layout_id)
-                    .map(container => (
+                {/* Floor plan canvas (zoomable/pannable) */}
+                <div
+                    ref={canvasRef}
+                    onMouseMove={resizing ? handleResizeMove : handleMouseMove}
+                    onMouseUp={resizing ? handleResizeEnd : handleMouseUp}
+                    onMouseLeave={resizing ? handleResizeEnd : handleMouseUp}
+                    style={{
+                        position: 'relative',
+                        width: '1200px',
+                        height: '900px',
+                        background: floorPlan?.plan.background_color || '#1a1a2e',
+                        transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                        transformOrigin: '0 0',
+                        transition: isPanning || dragging || resizing ? 'none' : 'transform 0.1s ease-out'
+                    }}
+                >
+                    {/* Rooms */}
+                    {floorPlan?.rooms.map(room => (
                         <div
-                            key={`container-${container.id}`}
-                            onMouseDown={(e) => handleMouseDown(e, 'container', container.id)}
-                            onClick={() => !editMode && handleContainerClick(container.container_id)}
+                            key={`room-${room.id}`}
+                            onMouseDown={(e) => handleMouseDown(e, 'room', room.id)}
                             style={{
                                 position: 'absolute',
-                                left: container.x,
-                                top: container.y,
-                                padding: '8px',
-                                background: 'var(--glass-bg)',
-                                border: '1px solid var(--glass-border)',
+                                left: room.x,
+                                top: room.y,
+                                width: room.width,
+                                height: room.height,
+                                background: room.color + '40',
+                                border: `2px solid ${room.color}`,
                                 borderRadius: '8px',
-                                cursor: editMode ? 'move' : 'pointer',
-                                userSelect: 'none',
-                                minWidth: '60px',
-                                textAlign: 'center'
+                                cursor: editMode ? 'move' : 'default',
+                                userSelect: 'none'
                             }}
                         >
-                            <Box size={20} style={{ margin: '0 auto 4px' }} />
-                            <div style={{ fontSize: '0.7em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {container.container_name}
+                            <div style={{
+                                padding: '5px 8px',
+                                background: room.color,
+                                color: 'white',
+                                fontSize: '0.75em',
+                                fontWeight: 'bold',
+                                borderRadius: '6px 6px 0 0',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span>{room.space_name}</span>
+                                {editMode && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room.id); }}
+                                        style={{ padding: '2px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                )}
                             </div>
+
+                            {/* Containers inside this room */}
+                            {floorPlan?.containers
+                                .filter(c => c.room_layout_id === room.id)
+                                .map(container => renderContainer(container, true))}
+
+                            {/* Resize handle for room */}
                             {editMode && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
+                                <div
+                                    onMouseDown={(e) => handleResizeStart(e, 'room', room.id)}
                                     style={{
-                                        position: 'absolute', top: -5, right: -5,
-                                        padding: '2px', background: '#ef4444', borderRadius: '50%'
+                                        position: 'absolute',
+                                        right: 0,
+                                        bottom: 0,
+                                        width: 15,
+                                        height: 15,
+                                        cursor: 'se-resize',
+                                        background: room.color,
+                                        borderRadius: '0 0 6px 0'
                                     }}
-                                >
-                                    <X size={10} />
-                                </button>
+                                />
                             )}
                         </div>
                     ))}
 
-                {/* Empty state */}
-                {floorPlan?.rooms.length === 0 && (
-                    <div style={{
-                        position: 'absolute', top: '50%', left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        textAlign: 'center', opacity: 0.5
-                    }}>
-                        <Home size={48} style={{ marginBottom: '10px' }} />
-                        <p>Activa "Editar" y añade habitaciones</p>
-                    </div>
-                )}
+                    {/* Containers without room (floating) */}
+                    {floorPlan?.containers
+                        .filter(c => !c.room_layout_id)
+                        .map(container => renderContainer(container, false))}
+
+                    {/* Empty state */}
+                    {floorPlan?.rooms.length === 0 && (
+                        <div style={{
+                            position: 'absolute', top: '50%', left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            textAlign: 'center', opacity: 0.5
+                        }}>
+                            <Home size={48} style={{ marginBottom: '10px' }} />
+                            <p>Activa "Editar" y añade habitaciones</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Legend */}
@@ -452,6 +553,11 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                     ))}
                 </div>
             )}
+
+            {/* Hint for mobile */}
+            <p style={{ fontSize: '0.75em', opacity: 0.5, textAlign: 'center', marginTop: '0.5rem' }}>
+                Usa los botones +/- para zoom o arrastra para mover el plano
+            </p>
 
             {/* Add Room Modal */}
             {showAddRoom && (

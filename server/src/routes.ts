@@ -387,8 +387,8 @@ export default async function routes(fastify: FastifyInstance) {
     });
 
     // --- Container Positions ---
-    fastify.post('/api/container-positions', async (req: FastifyRequest<{ Body: { container_id: number, room_layout_id?: number, x?: number, y?: number, icon?: string } }>, reply) => {
-        const { container_id, room_layout_id, x, y, icon } = req.body;
+    fastify.post('/api/container-positions', async (req: FastifyRequest<{ Body: { container_id: number, room_layout_id?: number, x?: number, y?: number, width?: number, height?: number, icon?: string } }>, reply) => {
+        const { container_id, room_layout_id, x, y, width, height, icon } = req.body;
         if (!container_id) return reply.status(400).send({ error: 'container_id requerido' });
 
         // Check if position already exists
@@ -396,21 +396,23 @@ export default async function routes(fastify: FastifyInstance) {
         if (existing) return reply.status(400).send({ error: 'Este contenedor ya tiene posición' });
 
         const result = db.prepare(`
-            INSERT INTO container_positions (container_id, room_layout_id, x, y, icon) 
-            VALUES (?, ?, ?, ?, ?)
-        `).run(container_id, room_layout_id || null, x || 10, y || 10, icon || 'box');
+            INSERT INTO container_positions (container_id, room_layout_id, x, y, width, height, icon) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(container_id, room_layout_id || null, x || 10, y || 10, width || 60, height || 60, icon || 'box');
         return { id: result.lastInsertRowid };
     });
 
-    fastify.put('/api/container-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, icon?: string } }>, reply) => {
+    fastify.put('/api/container-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, width?: number, height?: number, icon?: string } }>, reply) => {
         const { id } = req.params;
-        const { room_layout_id, x, y, icon } = req.body;
+        const { room_layout_id, x, y, width, height, icon } = req.body;
 
         const updates: string[] = [];
         const values: any[] = [];
         if (room_layout_id !== undefined) { updates.push('room_layout_id = ?'); values.push(room_layout_id); }
         if (x !== undefined) { updates.push('x = ?'); values.push(x); }
         if (y !== undefined) { updates.push('y = ?'); values.push(y); }
+        if (width !== undefined) { updates.push('width = ?'); values.push(width); }
+        if (height !== undefined) { updates.push('height = ?'); values.push(height); }
         if (icon) { updates.push('icon = ?'); values.push(icon); }
 
         if (updates.length === 0) return { success: true };

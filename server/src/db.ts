@@ -97,6 +97,15 @@ export const initDb = () => {
     db.exec(`ALTER TABLE containers ADD COLUMN description TEXT`);
   } catch (e) { /* Column already exists */ }
 
+  // v0.3: Container size support
+  try {
+    db.exec(`ALTER TABLE container_positions ADD COLUMN width INTEGER DEFAULT 60`);
+  } catch (e) { /* Column already exists */ }
+
+  try {
+    db.exec(`ALTER TABLE container_positions ADD COLUMN height INTEGER DEFAULT 60`);
+  } catch (e) { /* Column already exists */ }
+
   console.log('Database initialized');
 };
 

@@ -141,6 +141,8 @@ export interface ContainerPosition {
     room_layout_id?: number;
     x: number;
     y: number;
+    width?: number;
+    height?: number;
     icon: string;
 }
 
@@ -209,12 +211,12 @@ export const deleteRoomLayout = async (id: number) => {
 };
 
 // Container Positions
-export const createContainerPosition = async (data: { container_id: number; room_layout_id?: number; x?: number; y?: number; icon?: string }) => {
+export const createContainerPosition = async (data: { container_id: number; room_layout_id?: number; x?: number; y?: number; width?: number; height?: number; icon?: string }) => {
     const response = await api.post('/container-positions', data);
     return response.data;
 };
 
-export const updateContainerPosition = async (id: number, data: { room_layout_id?: number; x?: number; y?: number; icon?: string }) => {
+export const updateContainerPosition = async (id: number, data: { room_layout_id?: number; x?: number; y?: number; width?: number; height?: number; icon?: string }) => {
     const response = await api.put(`/container-positions/${id}`, data);
     return response.data;
 };
