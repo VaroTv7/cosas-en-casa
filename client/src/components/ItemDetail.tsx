@@ -12,7 +12,7 @@ interface Props {
 }
 
 const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
-    console.log('DEBUG ITEM DETAIL:', item);
+
     // Photos state
     const [photos, setPhotos] = useState<ItemPhoto[]>([]);
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -341,7 +341,7 @@ const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
                     <div style={{ margin: '10px auto', display: 'flex', justifyContent: 'center' }}>
                         <QRCodeSVG value={qrContent} size={140} />
                     </div>
-                    <p style={{ color: '#666', fontSize: '0.65em', margin: 0 }}>QR COSAS-EN-CASA v0.4</p>
+                    <p style={{ color: '#666', fontSize: '0.65em', margin: 0 }}>QR COSAS-EN-CASA v0.6</p>
                 </div>
 
             </div>

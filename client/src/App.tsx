@@ -156,7 +156,7 @@ function App() {
               </button>
               <p style={{ opacity: 0.7, fontSize: '0.9em' }}>Configura los iconos y colores de tus categorías de objetos.</p>
             </div>
-            <p style={{ opacity: 0.5, marginTop: '2rem', fontSize: '0.8em' }}>Cosas en Casa v0.4 - Extended Item Metadata</p>
+            <p style={{ opacity: 0.5, marginTop: '2rem', fontSize: '0.8em' }}>Cosas en Casa v0.6 - Global Search & Smart Inventory</p>
           </div>
         )}
 
