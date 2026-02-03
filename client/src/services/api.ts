@@ -338,14 +338,22 @@ export const generateQRContent = (item: Item) => {
 
 // ==================== v0.6 Global Search ====================
 
-export interface SearchResults {
-    items: (Item & { container_name?: string })[];
-    containers: (Container & { space_name?: string })[];
-    spaces: Space[];
-    people: Person[];
+export interface SearchResultItem extends Item {
+    container_name?: string;
+    space_name?: string;
 }
 
-export const searchGlobal = async (query: string) => {
+export interface SearchResultContainer extends Container {
+    space_name?: string;
+}
+
+export interface SearchResults {
+    items: SearchResultItem[];
+    containers: SearchResultContainer[];
+    spaces: Space[];
+}
+
+export const searchGlobal = async (query: string): Promise<SearchResults> => {
     const response = await api.get<SearchResults>(`/search?q=${encodeURIComponent(query)}`);
     return response.data;
 };

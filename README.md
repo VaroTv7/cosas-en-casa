@@ -11,6 +11,11 @@
 
 ## ✨ Características Principales
 
+### 🔍 Búsqueda Global (v0.6)
+- **Omnibox Inteligente**: Busca cualquier objeto por nombre, marca, modelo, etiquetas o descripción.
+- **Contexto de Ubicación**: Los resultados muestran dónde está cada objeto (Contenedor > Espacio).
+- **Búsqueda En Vivo**: Los resultados aparecen mientras escribes, con debounce para rendimiento óptimo.
+
 ### 👥 Gestión de Personas y Préstamos (v0.5)
 - **Agenda de Contactos**: Registra familiares y amigos para gestionar préstamos de forma ordenada.
 - **Control de Préstamos**: Asigna objetos prestados a personas específicas desde un desplegable.
@@ -127,13 +132,18 @@ El proyecto sigue una arquitectura de **Desacoplamiento Total** entre cliente y 
 ---
 
 ## 📝 Roadmap (Futuro - Diferido)
-- [ ] Búsqueda global desde la pantalla de inicio (Omnibox).
+- [x] ~~Búsqueda global desde la pantalla de inicio (Omnibox).~~
 - [ ] Escaneo de ISBN/Códigos de Barras para auto-rellenado (OpenLibrary integration).
 - [ ] Estadísticas de valor total del inventario.
 - [ ] Modo multi-vivienda.
 - [ ] PWA (Progressive Web App) para instalación en móvil.
 
 ## 📰 Changelog
+
+### v0.6 (Global Search)
+- **Omnibox**: Barra de búsqueda global en el Dashboard para encontrar cualquier objeto al instante.
+- **Resultados Contextuales**: Las búsquedas muestran la ubicación de cada objeto (Contenedor > Espacio).
+- **Backend Mejorado**: El endpoint `/api/search` ahora busca en múltiples campos y devuelve datos enriquecidos.
 
 ### v0.5.2 (Stability & Polish)
 - **Vista Unificada**: La vista de "Base de Datos" ahora utiliza la misma ficha de objeto detallada que el panel principal.
@@ -153,6 +163,6 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 ---
 
 <p align="center">
-  <strong>🏠 Cosas en Casa v0.5</strong><br>
+  <strong>🏠 Cosas en Casa v0.5 by ElVartoDev</strong><br>
   <em>Organización inteligente y social para tu hogar.</em>
 </p>

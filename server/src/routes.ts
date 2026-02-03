@@ -133,13 +133,44 @@ export default async function routes(fastify: FastifyInstance) {
         return { id: result.lastInsertRowid, photo_url };
     });
 
-    // Search
+    // Global Search (v0.6)
     fastify.get('/api/search', async (req: FastifyRequest<{ Querystring: { q: string } }>) => {
         const { q } = req.query;
-        if (!q) return [];
-        // Simple LIKE search for now
-        const items = db.prepare('SELECT * FROM items WHERE name LIKE ? OR tags LIKE ?').all(`%${q}%`, `%${q}%`);
-        return items;
+        if (!q || q.trim().length < 2) return { items: [], containers: [], spaces: [] };
+
+        const searchTerm = `%${q.trim()}%`;
+
+        // Search items with location context
+        const items = db.prepare(`
+            SELECT i.*, c.name as container_name, s.name as space_name
+            FROM items i
+            LEFT JOIN containers c ON i.container_id = c.id
+            LEFT JOIN spaces s ON c.space_id = s.id
+            WHERE i.name LIKE ? 
+               OR i.tags LIKE ? 
+               OR i.description LIKE ? 
+               OR i.brand LIKE ? 
+               OR i.model LIKE ? 
+               OR i.serial_number LIKE ?
+               OR i.loaned_to LIKE ?
+            LIMIT 20
+        `).all(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+
+        // Search containers
+        const containers = db.prepare(`
+            SELECT c.*, s.name as space_name
+            FROM containers c
+            LEFT JOIN spaces s ON c.space_id = s.id
+            WHERE c.name LIKE ? OR c.description LIKE ?
+            LIMIT 10
+        `).all(searchTerm, searchTerm);
+
+        // Search spaces
+        const spaces = db.prepare(`
+            SELECT * FROM spaces WHERE name LIKE ? OR description LIKE ? LIMIT 10
+        `).all(searchTerm, searchTerm);
+
+        return { items, containers, spaces };
     });
 
     // GET Item by ID (Useful for QR scanning)
