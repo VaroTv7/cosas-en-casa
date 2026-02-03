@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { Package, PlusCircle, Scan, Search } from 'lucide-react';
+import { Package, PlusCircle, Scan, Map } from 'lucide-react';
 import InventoryList from './components/InventoryList';
 import AddItemForm from './components/AddItemForm';
 import Scanner from './components/Scanner';
 import ItemDetail from './components/ItemDetail';
+import FloorPlan from './components/FloorPlan';
 import type { Space, Item } from './services/api';
 import { getInventory, getItem } from './services/api';
 
 function App() {
-  const [view, setView] = useState<'inventory' | 'add' | 'scan'>('inventory');
+  const [view, setView] = useState<'inventory' | 'add' | 'scan' | 'floorplan'>('inventory');
   const [inventory, setInventory] = useState<Space[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -31,11 +32,22 @@ function App() {
   };
 
   const handleScan = async (val: string) => {
-    // Assuming QR contains item ID for now
-    // If we implement complex QR, we parse it here.
-    // E.g. "item:123" or just "123"
+    // v0.2: Handle new QR format "cec:ID:Name" or legacy "item:ID"
     try {
-      const id = val.replace('item:', '');
+      let id: string;
+
+      if (val.startsWith('cec:')) {
+        // New format: cec:ID:Name
+        const parts = val.split(':');
+        id = parts[1];
+      } else if (val.startsWith('item:')) {
+        // Legacy format: item:ID
+        id = val.replace('item:', '');
+      } else {
+        // Try raw number
+        id = val;
+      }
+
       if (!isNaN(Number(id))) {
         const item = await getItem(id);
         setSelectedItem(item);
@@ -59,6 +71,13 @@ function App() {
           <span>Inventario</span>
         </button>
         <button
+          className={`nav-item ${view === 'floorplan' ? 'active' : ''}`}
+          onClick={() => setView('floorplan')}
+        >
+          <Map size={24} />
+          <span>Plano</span>
+        </button>
+        <button
           className={`nav-item ${view === 'add' ? 'active' : ''}`}
           onClick={() => setView('add')}
         >
@@ -79,10 +98,6 @@ function App() {
           <div>
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h1>Cosas en Casa</h1>
-              <div style={{ position: 'relative' }}>
-                <Search size={20} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} />
-                <input type="text" placeholder="Buscar..." style={{ paddingLeft: '35px' }} />
-              </div>
             </header>
 
             {loading ? <p>Cargando inventario...</p> : (
@@ -95,6 +110,10 @@ function App() {
           </div>
         )}
 
+        {view === 'floorplan' && (
+          <FloorPlan onSelectItem={(item) => setSelectedItem(item)} />
+        )}
+
         {view === 'add' && (
           <AddItemForm onSuccess={() => setView('inventory')} />
         )}
@@ -102,6 +121,9 @@ function App() {
         {view === 'scan' && (
           <div className="card">
             <h2>Escanear QR</h2>
+            <p style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: '1rem' }}>
+              Compatible con formato v0.1 (item:ID) y v0.2 (cec:ID:Nombre)
+            </p>
             <Scanner onScan={handleScan} />
           </div>
         )}

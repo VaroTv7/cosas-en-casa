@@ -3,10 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![Version](https://img.shields.io/badge/Version-0.2-purple.svg)]()
 
 **Cosas en Casa** es una aplicación web de inventario doméstico que te permite organizar, catalogar y encontrar tus pertenencias de forma rápida y sencilla. Perfecta para saber exactamente qué tienes y dónde está guardado.
-
-![Vista Principal](https://via.placeholder.com/800x400/1a1a2e/00d4ff?text=Cosas+en+Casa)
 
 ---
 
@@ -17,15 +16,21 @@
 - **Contenedores** (Muebles): Armario, Cajón, Estantería...
 - **Objetos** (Items): Tus pertenencias con foto, cantidad y descripción
 
+### 🗺️ Plano Visual de la Casa (v0.2)
+- **Editor drag-and-drop** para crear el plano de tu casa
+- **Habitaciones redimensionables** con colores personalizados
+- **Muebles interactivos**: haz clic para ver todos los objetos
+- **Vista rápida** de dónde está cada cosa
+
 ### 🔍 Funcionalidades Principales
 | Función | Descripción |
 |---------|-------------|
 | ✅ CRUD Completo | Crear, leer, editar y eliminar en todos los niveles |
-| 📷 Fotos con Cámara | Captura fotos directamente desde el móvil |
+| 📷 Múltiples Fotos | Hasta 10 fotos por objeto (v0.2) |
 | 🔎 Búsqueda | Encuentra objetos por nombre o etiquetas |
-| 📱 QR Codes | Cada objeto genera un código QR único para identificación rápida |
-| 📲 Escáner QR | Escanea códigos para localizar objetos instantáneamente |
-| 🌙 Tema Oscuro | Interfaz moderna y elegante en modo oscuro |
+| 📱 QR Codes | Códigos con nombre del objeto (`cec:ID:Nombre`) |
+| 📲 Escáner QR | Escanea códigos para localizar objetos al instante |
+| 🌙 Tema Oscuro | Interfaz moderna y elegante |
 | 📱 Responsive | Funciona en móvil, tablet y escritorio |
 
 ---
@@ -58,7 +63,7 @@
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/TU_USUARIO/cosas-en-casa.git
+git clone https://github.com/VaroTv7/cosas-en-casa.git
 cd cosas-en-casa
 
 # 2. Instalar dependencias del servidor
@@ -116,7 +121,14 @@ docker-compose logs -f
 3. Rellena: nombre, cantidad, descripción
 4. ¡Saca una foto para identificarlo fácilmente!
 
-### 4. Escanear QR
+### 4. Usar el Plano
+1. Ve a la pestaña **"Plano"**
+2. Pulsa **"Editar"** para entrar en modo edición
+3. Añade habitaciones y muebles al plano
+4. Arrastra para posicionar, usa la esquina para redimensionar
+5. En modo normal, haz clic en un mueble para ver sus objetos
+
+### 5. Escanear QR
 - Imprime el código QR de un objeto y pégalo en el contenedor físico
 - Usa la pestaña **"Escanear"** para localizarlo al instante
 
@@ -129,10 +141,13 @@ cosas-en-casa/
 ├── client/                 # Frontend React
 │   ├── src/
 │   │   ├── components/     # Componentes React
+│   │   │   ├── FloorPlan.tsx      # Editor de plano
+│   │   │   ├── ItemDetail.tsx     # Detalle con galería
+│   │   │   ├── InventoryList.tsx  # Lista de inventario
+│   │   │   └── ...
 │   │   ├── services/       # API client (axios)
 │   │   ├── App.tsx         # Componente principal
 │   │   └── App.css         # Estilos globales
-│   ├── package.json
 │   └── vite.config.ts
 │
 ├── server/                 # Backend Fastify
@@ -141,11 +156,10 @@ cosas-en-casa/
 │   │   ├── routes.ts       # Rutas API
 │   │   └── db.ts           # Configuración SQLite
 │   ├── uploads/            # Imágenes subidas
-│   ├── public/             # Frontend compilado
-│   └── package.json
+│   └── public/             # Frontend compilado
 │
-├── docker-compose.yml      # Configuración Docker
-├── Dockerfile              # Imagen Docker
+├── docker-compose.yml
+├── Dockerfile
 └── README.md
 ```
 
@@ -153,14 +167,15 @@ cosas-en-casa/
 
 ## 🔌 API Endpoints
 
+### Inventario
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | GET | `/api/inventory` | Obtener todo el inventario |
 | GET | `/api/items/:id` | Obtener un objeto por ID |
 | GET | `/api/search?q=` | Buscar objetos |
 | POST | `/api/spaces` | Crear espacio |
-| POST | `/api/containers` | Crear contenedor (multipart) |
-| POST | `/api/items` | Crear objeto (multipart) |
+| POST | `/api/containers` | Crear contenedor |
+| POST | `/api/items` | Crear objeto |
 | PUT | `/api/spaces/:id` | Actualizar espacio |
 | PUT | `/api/containers/:id` | Actualizar contenedor |
 | PUT | `/api/items/:id` | Actualizar objeto |
@@ -168,29 +183,46 @@ cosas-en-casa/
 | DELETE | `/api/containers/:id` | Eliminar contenedor |
 | DELETE | `/api/items/:id` | Eliminar objeto |
 
+### Plano (v0.2)
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/api/floor-plan` | Obtener plano completo |
+| PUT | `/api/floor-plan` | Actualizar configuración |
+| POST | `/api/room-layouts` | Añadir habitación |
+| PUT | `/api/room-layouts/:id` | Mover/redimensionar |
+| DELETE | `/api/room-layouts/:id` | Eliminar habitación |
+| POST | `/api/container-positions` | Añadir mueble |
+| PUT | `/api/container-positions/:id` | Mover mueble |
+| DELETE | `/api/container-positions/:id` | Eliminar mueble |
+
+### Fotos de Objetos (v0.2)
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/api/items/:id/photos` | Ver fotos |
+| POST | `/api/items/:id/photos` | Añadir foto |
+| DELETE | `/api/items/:id/photos/:photoId` | Eliminar foto |
+| PUT | `/api/items/:id/photos/:photoId/primary` | Establecer principal |
+
 ---
 
 ## ❓ Preguntas Frecuentes (FAQ)
 
 ### ¿Dónde se guardan mis datos?
-Los datos se almacenan localmente en un archivo SQLite (`server/data.db`). Las imágenes se guardan en `server/uploads/`.
+Los datos se almacenan localmente en un archivo SQLite (`server/data/inventory.db`). Las imágenes se guardan en `server/uploads/`.
 
 ### ¿Puedo acceder desde mi móvil?
 Sí. Si el servidor está en tu red local, accede usando la IP del ordenador (ej: `http://192.168.1.100:8110`).
 
 ### ¿Cómo hago backup de mis datos?
 Copia los archivos:
-- `server/data.db` (base de datos)
+- `server/data/inventory.db` (base de datos)
 - `server/uploads/` (imágenes)
 
 ### ¿Puedo cambiar el puerto?
 Sí. Edita `server/src/index.ts` y cambia el valor de `PORT`.
 
-### ¿Qué pasa si elimino un Espacio con contenido?
-La aplicación no permite eliminar Espacios o Contenedores que tengan elementos dentro. Primero debes vaciarlos.
-
 ### ¿Las fotos se optimizan?
-Sí. Todas las imágenes se convierten automáticamente a formato WebP y se redimensionan a un máximo de 800x800 píxeles para ahorrar espacio.
+Sí. Todas las imágenes se convierten automáticamente a formato WebP y se redimensionan a un máximo de 800x800 píxeles.
 
 ### ¿Necesito Internet?
 No. La aplicación funciona completamente offline una vez instalada.
@@ -225,24 +257,13 @@ npm run dev
 
 ## 📝 Roadmap
 
+- [x] Plano visual de la casa
+- [x] Múltiples fotos por objeto
+- [x] QR codes con nombre del objeto
 - [ ] Exportar inventario a PDF/Excel
 - [ ] Modo multi-usuario
 - [ ] Sincronización en la nube
-- [ ] Notificaciones de caducidad
 - [ ] PWA (Progressive Web App)
-- [ ] Etiquetas y categorías personalizadas
-
----
-
-## 🤝 Contribuir
-
-¡Las contribuciones son bienvenidas! Por favor:
-
-1. Haz fork del proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/NuevaFuncion`)
-3. Commit tus cambios (`git commit -m 'Añadir nueva función'`)
-4. Push a la rama (`git push origin feature/NuevaFuncion`)
-5. Abre un Pull Request
 
 ---
 
@@ -254,11 +275,11 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 ## 👤 Autor
 
-Desarrollado con ❤️ para organizar el hogar.
+Desarrollado por VaroTv7 con ❤️ para organizar el hogar.
 
 ---
 
 <p align="center">
-  <strong>🏠 Cosas en Casa</strong><br>
+  <strong>🏠 Cosas en Casa v0.2</strong><br>
   <em>Organiza tu hogar, encuentra todo al instante.</em>
 </p>

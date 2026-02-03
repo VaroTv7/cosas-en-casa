@@ -244,4 +244,184 @@ export default async function routes(fastify: FastifyInstance) {
 
         return { success: true };
     });
+
+    // ==================== v0.2 APIs ====================
+
+    // GET Item by ID with photos (Useful for QR scanning) - Enhanced
+    fastify.get('/api/items/:id/full', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        const { id } = req.params;
+        const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id) as any;
+        if (!item) return reply.status(404).send({ error: 'Ítem no encontrado' });
+
+        const photos = db.prepare('SELECT * FROM item_photos WHERE item_id = ? ORDER BY is_primary DESC, id ASC').all(id);
+        return { ...item, photos };
+    });
+
+    // --- Item Photos ---
+    fastify.get('/api/items/:id/photos', async (req: FastifyRequest<{ Params: { id: string } }>) => {
+        const { id } = req.params;
+        return db.prepare('SELECT * FROM item_photos WHERE item_id = ? ORDER BY is_primary DESC, id ASC').all(id);
+    });
+
+    fastify.post('/api/items/:id/photos', async (req, reply) => {
+        const { id } = (req.params as { id: string });
+        const parts = req.parts();
+        let photo_url = null;
+
+        for await (const part of parts) {
+            if (part.type === 'file') {
+                photo_url = await saveImage(part);
+            }
+        }
+
+        if (!photo_url) return reply.status(400).send({ error: 'No se recibió imagen' });
+
+        // Check max photos (limit 10)
+        const count = db.prepare('SELECT count(*) as count FROM item_photos WHERE item_id = ?').get(id) as { count: number };
+        if (count.count >= 10) return reply.status(400).send({ error: 'Máximo 10 fotos por ítem' });
+
+        const result = db.prepare('INSERT INTO item_photos (item_id, photo_url, is_primary) VALUES (?, ?, ?)').run(id, photo_url, count.count === 0 ? 1 : 0);
+        return { id: result.lastInsertRowid, photo_url };
+    });
+
+    fastify.delete('/api/items/:itemId/photos/:photoId', async (req: FastifyRequest<{ Params: { itemId: string, photoId: string } }>, reply) => {
+        const { itemId, photoId } = req.params;
+        const result = db.prepare('DELETE FROM item_photos WHERE id = ? AND item_id = ?').run(photoId, itemId);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Foto no encontrada' });
+        return { success: true };
+    });
+
+    fastify.put('/api/items/:itemId/photos/:photoId/primary', async (req: FastifyRequest<{ Params: { itemId: string, photoId: string } }>, reply) => {
+        const { itemId, photoId } = req.params;
+        // Clear all primaries for this item, then set the new one
+        db.prepare('UPDATE item_photos SET is_primary = 0 WHERE item_id = ?').run(itemId);
+        const result = db.prepare('UPDATE item_photos SET is_primary = 1 WHERE id = ? AND item_id = ?').run(photoId, itemId);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Foto no encontrada' });
+        return { success: true };
+    });
+
+    // --- Floor Plan ---
+    fastify.get('/api/floor-plan', async () => {
+        // Ensure a floor plan exists
+        let plan = db.prepare('SELECT * FROM floor_plan LIMIT 1').get() as any;
+        if (!plan) {
+            db.prepare('INSERT INTO floor_plan DEFAULT VALUES').run();
+            plan = db.prepare('SELECT * FROM floor_plan LIMIT 1').get();
+        }
+
+        const rooms = db.prepare(`
+            SELECT rl.*, s.name as space_name 
+            FROM room_layouts rl 
+            JOIN spaces s ON rl.space_id = s.id
+        `).all() as any[];
+
+        const containers = db.prepare(`
+            SELECT cp.*, c.name as container_name, c.space_id
+            FROM container_positions cp
+            JOIN containers c ON cp.container_id = c.id
+        `).all() as any[];
+
+        return { plan, rooms, containers };
+    });
+
+    fastify.put('/api/floor-plan', async (req: FastifyRequest<{ Body: { name?: string, width?: number, height?: number, background_color?: string } }>) => {
+        const { name, width, height, background_color } = req.body;
+
+        const updates: string[] = [];
+        const values: any[] = [];
+        if (name) { updates.push('name = ?'); values.push(name); }
+        if (width) { updates.push('width = ?'); values.push(width); }
+        if (height) { updates.push('height = ?'); values.push(height); }
+        if (background_color) { updates.push('background_color = ?'); values.push(background_color); }
+
+        if (updates.length > 0) {
+            db.prepare(`UPDATE floor_plan SET ${updates.join(', ')} WHERE id = 1`).run(...values);
+        }
+        return { success: true };
+    });
+
+    // --- Room Layouts ---
+    fastify.post('/api/room-layouts', async (req: FastifyRequest<{ Body: { space_id: number, x?: number, y?: number, width?: number, height?: number, color?: string } }>, reply) => {
+        const { space_id, x, y, width, height, color } = req.body;
+        if (!space_id) return reply.status(400).send({ error: 'space_id requerido' });
+
+        // Check if layout already exists for this space
+        const existing = db.prepare('SELECT id FROM room_layouts WHERE space_id = ?').get(space_id);
+        if (existing) return reply.status(400).send({ error: 'Este espacio ya tiene un layout' });
+
+        const result = db.prepare(`
+            INSERT INTO room_layouts (space_id, x, y, width, height, color) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(space_id, x || 50, y || 50, width || 150, height || 120, color || '#2a2a4e');
+        return { id: result.lastInsertRowid };
+    });
+
+    fastify.put('/api/room-layouts/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { x?: number, y?: number, width?: number, height?: number, color?: string } }>, reply) => {
+        const { id } = req.params;
+        const { x, y, width, height, color } = req.body;
+
+        const updates: string[] = [];
+        const values: any[] = [];
+        if (x !== undefined) { updates.push('x = ?'); values.push(x); }
+        if (y !== undefined) { updates.push('y = ?'); values.push(y); }
+        if (width !== undefined) { updates.push('width = ?'); values.push(width); }
+        if (height !== undefined) { updates.push('height = ?'); values.push(height); }
+        if (color) { updates.push('color = ?'); values.push(color); }
+
+        if (updates.length === 0) return { success: true };
+
+        values.push(id);
+        const result = db.prepare(`UPDATE room_layouts SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Layout no encontrado' });
+        return { success: true };
+    });
+
+    fastify.delete('/api/room-layouts/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        const { id } = req.params;
+        const result = db.prepare('DELETE FROM room_layouts WHERE id = ?').run(id);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Layout no encontrado' });
+        return { success: true };
+    });
+
+    // --- Container Positions ---
+    fastify.post('/api/container-positions', async (req: FastifyRequest<{ Body: { container_id: number, room_layout_id?: number, x?: number, y?: number, icon?: string } }>, reply) => {
+        const { container_id, room_layout_id, x, y, icon } = req.body;
+        if (!container_id) return reply.status(400).send({ error: 'container_id requerido' });
+
+        // Check if position already exists
+        const existing = db.prepare('SELECT id FROM container_positions WHERE container_id = ?').get(container_id);
+        if (existing) return reply.status(400).send({ error: 'Este contenedor ya tiene posición' });
+
+        const result = db.prepare(`
+            INSERT INTO container_positions (container_id, room_layout_id, x, y, icon) 
+            VALUES (?, ?, ?, ?, ?)
+        `).run(container_id, room_layout_id || null, x || 10, y || 10, icon || 'box');
+        return { id: result.lastInsertRowid };
+    });
+
+    fastify.put('/api/container-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, icon?: string } }>, reply) => {
+        const { id } = req.params;
+        const { room_layout_id, x, y, icon } = req.body;
+
+        const updates: string[] = [];
+        const values: any[] = [];
+        if (room_layout_id !== undefined) { updates.push('room_layout_id = ?'); values.push(room_layout_id); }
+        if (x !== undefined) { updates.push('x = ?'); values.push(x); }
+        if (y !== undefined) { updates.push('y = ?'); values.push(y); }
+        if (icon) { updates.push('icon = ?'); values.push(icon); }
+
+        if (updates.length === 0) return { success: true };
+
+        values.push(id);
+        const result = db.prepare(`UPDATE container_positions SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Posición no encontrada' });
+        return { success: true };
+    });
+
+    fastify.delete('/api/container-positions/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        const { id } = req.params;
+        const result = db.prepare('DELETE FROM container_positions WHERE id = ?').run(id);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Posición no encontrada' });
+        return { success: true };
+    });
 }
