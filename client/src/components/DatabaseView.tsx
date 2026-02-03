@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Box, Package, PenLine, Trash2, Plus, Search, X } from 'lucide-react';
-import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, updateItem, createSpace, createContainer, createItem } from '../services/api';
+import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, updateItem, createSpace, createContainer, createItem, getItem } from '../services/api';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface Space {
     id: number;
@@ -15,6 +16,7 @@ interface Container {
     name: string;
     description?: string;
     space_id?: number;
+    photo_url?: string;
     items: Item[];
 }
 
@@ -24,6 +26,8 @@ interface Item {
     description?: string;
     container_id?: number;
     quantity: number;
+    photo_url?: string;
+    tags?: string;
 }
 
 type EntityType = 'spaces' | 'containers' | 'items';
@@ -168,6 +172,89 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
     );
 };
 
+// Item Detail Panel
+interface ItemDetailPanelProps {
+    item: Item & { container_name?: string };
+    onClose: () => void;
+    onEdit: () => void;
+}
+
+const ItemDetailPanel: React.FC<ItemDetailPanelProps> = ({ item, onClose, onEdit }) => {
+    const [fullItem, setFullItem] = useState<any>(null);
+
+    useEffect(() => {
+        getItem(item.id).then(setFullItem).catch(console.error);
+    }, [item.id]);
+
+    const qrValue = `cec:${item.id}:${item.name}`;
+
+    return (
+        <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <button onClick={onClose} style={{ background: 'transparent', padding: '5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <ArrowLeft size={20} /> Volver
+                    </button>
+                    <button onClick={onEdit} style={{ padding: '8px 16px', background: 'var(--accent)', borderRadius: '8px' }}>
+                        <PenLine size={16} /> Editar
+                    </button>
+                </div>
+
+                {/* Photo */}
+                {(fullItem?.photo_url || item.photo_url) ? (
+                    <img
+                        src={fullItem?.photo_url || item.photo_url}
+                        alt={item.name}
+                        style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '12px', marginBottom: '1rem' }}
+                    />
+                ) : (
+                    <div style={{
+                        width: '100%', height: '150px', background: 'var(--glass-bg)', borderRadius: '12px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'
+                    }}>
+                        <ImageIcon size={48} style={{ opacity: 0.3 }} />
+                    </div>
+                )}
+
+                <h2 style={{ margin: '0 0 0.5rem 0' }}>{item.name}</h2>
+
+                {item.container_name && (
+                    <div style={{ fontSize: '0.9em', opacity: 0.7, marginBottom: '0.5rem' }}>
+                        📦 En: <strong>{item.container_name}</strong>
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                    <div style={{ padding: '8px 16px', background: 'var(--glass-bg)', borderRadius: '8px' }}>
+                        <strong>Cantidad:</strong> {item.quantity}
+                    </div>
+                    {fullItem?.tags && (
+                        <div style={{ padding: '8px 16px', background: 'var(--glass-bg)', borderRadius: '8px' }}>
+                            🏷️ {fullItem.tags}
+                        </div>
+                    )}
+                </div>
+
+                {(item.description || fullItem?.description) && (
+                    <div style={{ padding: '1rem', background: 'var(--glass-bg)', borderRadius: '8px', marginBottom: '1rem' }}>
+                        <strong>Descripción:</strong>
+                        <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>{item.description || fullItem?.description}</p>
+                    </div>
+                )}
+
+                {/* QR Code */}
+                <div style={{ textAlign: 'center', padding: '1rem', background: 'white', borderRadius: '12px' }}>
+                    <QRCodeSVG value={qrValue} size={120} />
+                    <p style={{ margin: '0.5rem 0 0 0', color: '#333', fontSize: '0.8em' }}>{qrValue}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 interface DatabaseViewProps {
     onSelectItem?: (item: any) => void;
 }
@@ -178,6 +265,11 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [editingEntity, setEditingEntity] = useState<{ type: EntityType; entity: any } | null>(null);
+
+    // Drill-down state
+    const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
+    const [selectedContainer, setSelectedContainer] = useState<(Container & { space_name?: string }) | null>(null);
+    const [selectedItem, setSelectedItem] = useState<(Item & { container_name?: string }) | null>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -218,6 +310,10 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
             else if (type === 'containers') await deleteContainer(id);
             else await deleteItem(id);
             loadData();
+            // Clear selections if deleted
+            if (type === 'spaces') setSelectedSpace(null);
+            if (type === 'containers') setSelectedContainer(null);
+            if (type === 'items') setSelectedItem(null);
         } catch (err: any) {
             alert(err?.response?.data?.error || 'Error al eliminar');
         }
@@ -229,11 +325,29 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         { key: 'items', label: 'Objetos', icon: <Package size={18} /> },
     ];
 
-    const renderRow = (type: EntityType, entity: any) => (
-        <div key={`${type}-${entity.id}`} style={{
-            display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
-            background: 'var(--glass-bg)', borderRadius: '8px', marginBottom: '8px'
-        }}>
+    // Clickable row that navigates to children
+    const renderClickableRow = (type: EntityType, entity: any, onClick: () => void, childCount?: number) => (
+        <div
+            key={`${type}-${entity.id}`}
+            onClick={onClick}
+            style={{
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
+                background: 'var(--glass-bg)', borderRadius: '10px', marginBottom: '8px',
+                cursor: 'pointer', transition: 'background 0.2s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--glass-bg)'}
+        >
+            <div style={{
+                width: '40px', height: '40px', borderRadius: '10px',
+                background: type === 'spaces' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' :
+                    type === 'containers' ? 'linear-gradient(135deg, #f59e0b, #ef4444)' :
+                        'linear-gradient(135deg, #10b981, #3b82f6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+                {type === 'spaces' ? <Home size={20} /> : type === 'containers' ? <Box size={20} /> : <Package size={20} />}
+            </div>
+
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>{entity.name}</div>
                 {entity.description && (
@@ -248,21 +362,131 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                     <div style={{ fontSize: '0.75em', opacity: 0.5 }}>📦 {entity.container_name}</div>
                 )}
             </div>
+
+            {childCount !== undefined && (
+                <span style={{
+                    padding: '4px 10px', background: 'var(--primary)', borderRadius: '12px',
+                    fontSize: '0.8em', fontWeight: 'bold'
+                }}>
+                    {childCount}
+                </span>
+            )}
+
             {type === 'items' && (
                 <span style={{ fontSize: '0.85em', opacity: 0.7 }}>×{entity.quantity}</span>
             )}
+
             <button
-                onClick={() => setEditingEntity({ type, entity })}
-                style={{ padding: '6px', background: 'var(--accent)', borderRadius: '6px' }}
+                onClick={(e) => { e.stopPropagation(); setEditingEntity({ type, entity }); }}
+                style={{ padding: '8px', background: 'var(--accent)', borderRadius: '8px' }}
             >
                 <PenLine size={14} />
             </button>
             <button
-                onClick={() => handleDelete(type, entity.id)}
-                style={{ padding: '6px', background: '#ef4444', borderRadius: '6px' }}
+                onClick={(e) => { e.stopPropagation(); handleDelete(type, entity.id); }}
+                style={{ padding: '8px', background: '#ef4444', borderRadius: '8px' }}
             >
                 <Trash2 size={14} />
             </button>
+
+            <ChevronRight size={20} style={{ opacity: 0.5 }} />
+        </div>
+    );
+
+    // Render selected space's containers
+    const renderSpaceDetails = (space: Space) => (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+                <button
+                    onClick={() => setSelectedSpace(null)}
+                    style={{ background: 'transparent', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <ArrowLeft size={20} /> Volver
+                </button>
+                <h3 style={{ margin: 0, flex: 1 }}>🏠 {space.name}</h3>
+                <button
+                    onClick={() => setEditingEntity({ type: 'spaces', entity: space })}
+                    style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px' }}
+                >
+                    <PenLine size={16} />
+                </button>
+            </div>
+
+            {space.description && (
+                <p style={{ opacity: 0.7, marginBottom: '1rem' }}>{space.description}</p>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h4 style={{ margin: 0 }}>📦 Contenedores ({space.containers.length})</h4>
+                <button
+                    onClick={() => setEditingEntity({ type: 'containers', entity: { space_id: space.id } })}
+                    style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <Plus size={16} /> Añadir
+                </button>
+            </div>
+
+            {space.containers.length === 0 ? (
+                <p style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>No hay contenedores en este espacio</p>
+            ) : (
+                space.containers.map(container =>
+                    renderClickableRow('containers', { ...container, space_name: space.name },
+                        () => setSelectedContainer({ ...container, space_name: space.name }),
+                        container.items.length
+                    )
+                )
+            )}
+        </div>
+    );
+
+    // Render selected container's items
+    const renderContainerDetails = (container: Container & { space_name?: string }) => (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+                <button
+                    onClick={() => setSelectedContainer(null)}
+                    style={{ background: 'transparent', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <ArrowLeft size={20} /> Volver
+                </button>
+                <h3 style={{ margin: 0, flex: 1 }}>📦 {container.name}</h3>
+                <button
+                    onClick={() => setEditingEntity({ type: 'containers', entity: container })}
+                    style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px' }}
+                >
+                    <PenLine size={16} />
+                </button>
+            </div>
+
+            {container.space_name && (
+                <div style={{ fontSize: '0.9em', opacity: 0.7, marginBottom: '0.5rem' }}>
+                    📍 En: <strong>{container.space_name}</strong>
+                </div>
+            )}
+
+            {container.description && (
+                <p style={{ opacity: 0.7, marginBottom: '1rem' }}>{container.description}</p>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h4 style={{ margin: 0 }}>🎁 Objetos ({container.items.length})</h4>
+                <button
+                    onClick={() => setEditingEntity({ type: 'items', entity: { container_id: container.id } })}
+                    style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <Plus size={16} /> Añadir
+                </button>
+            </div>
+
+            {container.items.length === 0 ? (
+                <p style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>No hay objetos en este contenedor</p>
+            ) : (
+                container.items.map(item =>
+                    renderClickableRow('items', { ...item, container_name: container.name },
+                        () => setSelectedItem({ ...item, container_name: container.name })
+                    )
+                )
+            )}
         </div>
     );
 
@@ -270,70 +494,96 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         <div>
             <h2 style={{ marginBottom: '1rem' }}>📦 Base de Datos</h2>
 
-            {/* Search */}
-            <div style={{ marginBottom: '1rem', position: 'relative' }}>
-                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
-                <input
-                    type="text"
-                    placeholder="Buscar..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ width: '100%', paddingLeft: '40px' }}
-                />
-            </div>
+            {/* If viewing a specific space */}
+            {selectedSpace && !selectedContainer && renderSpaceDetails(selectedSpace)}
 
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                {tabs.map(tab => (
+            {/* If viewing a specific container */}
+            {selectedContainer && renderContainerDetails(selectedContainer)}
+
+            {/* Main list view */}
+            {!selectedSpace && !selectedContainer && (
+                <>
+                    {/* Search */}
+                    <div style={{ marginBottom: '1rem', position: 'relative' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+                        <input
+                            type="text"
+                            placeholder="Buscar..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={{ width: '100%', paddingLeft: '40px' }}
+                        />
+                    </div>
+
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '8px 16px', borderRadius: '8px',
+                                    background: activeTab === tab.key ? 'var(--primary)' : 'var(--glass-bg)',
+                                    fontWeight: activeTab === tab.key ? 'bold' : 'normal'
+                                }}
+                            >
+                                {tab.icon}
+                                {tab.label}
+                                <span style={{ opacity: 0.7, fontSize: '0.85em' }}>
+                                    ({tab.key === 'spaces' ? filteredSpaces.length : tab.key === 'containers' ? filteredContainers.length : filteredItems.length})
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Add button */}
                     <button
-                        key={tab.key}
-                        onClick={() => setActiveTab(tab.key)}
+                        onClick={() => setEditingEntity({ type: activeTab, entity: {} })}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '6px',
-                            padding: '8px 16px', borderRadius: '8px',
-                            background: activeTab === tab.key ? 'var(--primary)' : 'var(--glass-bg)',
-                            fontWeight: activeTab === tab.key ? 'bold' : 'normal'
+                            padding: '10px 16px', marginBottom: '1rem',
+                            background: 'var(--accent)', borderRadius: '8px', fontWeight: 'bold'
                         }}
                     >
-                        {tab.icon}
-                        {tab.label}
-                        <span style={{ opacity: 0.7, fontSize: '0.85em' }}>
-                            ({tab.key === 'spaces' ? filteredSpaces.length : tab.key === 'containers' ? filteredContainers.length : filteredItems.length})
-                        </span>
+                        <Plus size={18} />
+                        Añadir {activeTab === 'spaces' ? 'Espacio' : activeTab === 'containers' ? 'Contenedor' : 'Objeto'}
                     </button>
-                ))}
-            </div>
 
-            {/* Add button */}
-            <button
-                onClick={() => setEditingEntity({ type: activeTab, entity: {} })}
-                style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '10px 16px', marginBottom: '1rem',
-                    background: 'var(--accent)', borderRadius: '8px', fontWeight: 'bold'
-                }}
-            >
-                <Plus size={18} />
-                Añadir {activeTab === 'spaces' ? 'Espacio' : activeTab === 'containers' ? 'Contenedor' : 'Objeto'}
-            </button>
+                    {/* Content */}
+                    {loading ? (
+                        <p>Cargando...</p>
+                    ) : (
+                        <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                            {activeTab === 'spaces' && filteredSpaces.map(space =>
+                                renderClickableRow('spaces', space, () => setSelectedSpace(space), space.containers.length)
+                            )}
+                            {activeTab === 'containers' && filteredContainers.map(container =>
+                                renderClickableRow('containers', container, () => setSelectedContainer(container), container.items.length)
+                            )}
+                            {activeTab === 'items' && filteredItems.map(item =>
+                                renderClickableRow('items', item, () => setSelectedItem(item))
+                            )}
 
-            {/* Content */}
-            {loading ? (
-                <p>Cargando...</p>
-            ) : (
-                <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                    {activeTab === 'spaces' && filteredSpaces.map(space => renderRow('spaces', space))}
-                    {activeTab === 'containers' && filteredContainers.map(container => renderRow('containers', container))}
-                    {activeTab === 'items' && filteredItems.map(item => renderRow('items', item))}
+                            {((activeTab === 'spaces' && filteredSpaces.length === 0) ||
+                                (activeTab === 'containers' && filteredContainers.length === 0) ||
+                                (activeTab === 'items' && filteredItems.length === 0)) && (
+                                    <p style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
+                                        No hay {activeTab === 'spaces' ? 'espacios' : activeTab === 'containers' ? 'contenedores' : 'objetos'}
+                                    </p>
+                                )}
+                        </div>
+                    )}
+                </>
+            )}
 
-                    {((activeTab === 'spaces' && filteredSpaces.length === 0) ||
-                        (activeTab === 'containers' && filteredContainers.length === 0) ||
-                        (activeTab === 'items' && filteredItems.length === 0)) && (
-                            <p style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
-                                No hay {activeTab === 'spaces' ? 'espacios' : activeTab === 'containers' ? 'contenedores' : 'objetos'}
-                            </p>
-                        )}
-                </div>
+            {/* Item Detail Panel */}
+            {selectedItem && (
+                <ItemDetailPanel
+                    item={selectedItem}
+                    onClose={() => setSelectedItem(null)}
+                    onEdit={() => { setEditingEntity({ type: 'items', entity: selectedItem }); }}
+                />
             )}
 
             {/* Edit Modal */}
