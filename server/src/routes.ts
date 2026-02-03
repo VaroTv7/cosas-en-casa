@@ -248,18 +248,18 @@ export default async function routes(fastify: FastifyInstance) {
     });
 
     fastify.put('/api/people/:id', async (request, reply) => {
-         const { id } = request.params as { id: string };
-         const { name, role, contact_info } = request.body as { name: string, role?: string, contact_info?: string };
-         try {
-             const result = db.prepare('UPDATE people SET name = ?, role = ?, contact_info = ? WHERE id = ?').run(name, role, contact_info, id);
-             if (result.changes === 0) return reply.code(404).send({ error: 'Person not found' });
-             return { success: true };
-         } catch (error: any) {
-             if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-                 return reply.code(409).send({ error: 'Name already taken' });
-             }
-             throw error;
-         }
+        const { id } = request.params as { id: string };
+        const { name, role, contact_info } = request.body as { name: string, role?: string, contact_info?: string };
+        try {
+            const result = db.prepare('UPDATE people SET name = ?, role = ?, contact_info = ? WHERE id = ?').run(name, role, contact_info, id);
+            if (result.changes === 0) return reply.code(404).send({ error: 'Person not found' });
+            return { success: true };
+        } catch (error: any) {
+            if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                return reply.code(409).send({ error: 'Name already taken' });
+            }
+            throw error;
+        }
     });
 
     fastify.delete('/api/people/:id', async (request, reply) => {
@@ -320,6 +320,9 @@ export default async function routes(fastify: FastifyInstance) {
         addField('warranty_end', fields.warranty_end);
         addField('condition', fields.condition);
         addField('notes', fields.notes);
+        addField('min_quantity', fields.min_quantity, parseInt);
+        addField('loaned_to', fields.loaned_to);
+        addField('loaned_at', fields.loaned_at);
 
         // Book fields
         addField('book_author', fields.book_author);
@@ -636,4 +639,5 @@ export default async function routes(fastify: FastifyInstance) {
         if (result.changes === 0) return reply.status(404).send({ error: 'Categoría no encontrada' });
         return { success: true };
     });
+
 }

@@ -336,4 +336,18 @@ export const generateQRContent = (item: Item) => {
     return `cec:${item.id}:${safeName}`;
 };
 
+// ==================== v0.6 Global Search ====================
+
+export interface SearchResults {
+    items: (Item & { container_name?: string })[];
+    containers: (Container & { space_name?: string })[];
+    spaces: Space[];
+    people: Person[];
+}
+
+export const searchGlobal = async (query: string) => {
+    const response = await api.get<SearchResults>(`/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+};
+
 export default api;

@@ -105,7 +105,7 @@ docker-compose up -d
 
 ---
 
-## 📝 Roadmap v0.6+
+## 📝 Roadmap (Futuro - Diferido)
 - [ ] Búsqueda global desde la pantalla de inicio (Omnibox).
 - [ ] Escaneo de ISBN/Códigos de Barras para auto-rellenado (OpenLibrary integration).
 - [ ] Estadísticas de valor total del inventario.
