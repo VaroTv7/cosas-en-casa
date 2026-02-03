@@ -1,0 +1,18 @@
+services:
+  cosas-en-casa:
+    container_name: cosas-en-casa
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8110:8110"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    environment:
+      - TZ=Europe/Madrid
+      - NODE_ENV=production
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
