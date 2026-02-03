@@ -8,6 +8,8 @@ server/public/
 
 # Database
 *.db
+*.db-shm
+*.db-wal
 
 # Uploads (user content)
 server/uploads/*
