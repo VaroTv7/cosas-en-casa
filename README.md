@@ -105,6 +105,27 @@ docker-compose up -d
 
 ---
 
+## 🏗️ Arquitectura Técnica
+
+El proyecto sigue una arquitectura de **Desacoplamiento Total** entre cliente y servidor:
+
+### 🧩 Backend (API) - Puerto 8110
+- **Tecnología**: Fastify + TypeScript.
+- **Responsabilidad**: Gestión de la lógica de negocio, procesamiento de imágenes (Sharp), generación de códigos QR y persistencia de datos.
+- **Seguridad**: CORS habilitado para el dominio del frontend.
+
+### 🎨 Frontend (SPA) - Puerto 5173
+- **Tecnología**: React 18 + Vite.
+- **Responsabilidad**: Interfaz de usuario dinámica, renderizado de planos interactivos y gestión de estado local.
+
+### 💾 Persistencia (SQLite + WAL)
+- **Base de Datos**: Localizada en `server/data/inventory.db`.
+- **Modo WAL (Write-Ahead Logging)**: Se utiliza para permitir lecturas y escrituras simultáneas sin bloqueos.
+  - **Nota**: Si ves archivos `-wal` o `-shm`, es el comportamiento normal de SQLite para garantizar la integridad de los datos.
+  - **Checkpoints**: El servidor sincroniza automáticamente los datos temporales al archivo principal periódicamente.
+
+---
+
 ## 📝 Roadmap (Futuro - Diferido)
 - [ ] Búsqueda global desde la pantalla de inicio (Omnibox).
 - [ ] Escaneo de ISBN/Códigos de Barras para auto-rellenado (OpenLibrary integration).
