@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/Version-0.2-purple.svg)]()
+[![Version](https://img.shields.io/badge/Version-0.3-purple.svg)]()
 
 **Cosas en Casa** es una aplicación web de inventario doméstico que te permite organizar, catalogar y encontrar tus pertenencias de forma rápida y sencilla. Perfecta para saber exactamente qué tienes y dónde está guardado.
 
@@ -20,7 +20,20 @@
 - **Editor drag-and-drop** para crear el plano de tu casa
 - **Habitaciones redimensionables** con colores personalizados
 - **Muebles interactivos**: haz clic para ver todos los objetos
+- **Contenedores anidados** en habitaciones - se mueven juntos
 - **Vista rápida** de dónde está cada cosa
+
+### 📊 Base de Datos Visual (v0.3)
+- **Vista de tablas** para Espacios, Contenedores y Objetos
+- **Búsqueda integrada** en cada categoría
+- **CRUD rápido**: Añadir, editar y eliminar desde la misma vista
+- **Descripciones** para espacios, contenedores y objetos
+
+### 📱 Diseño Responsive (v0.3)
+- **Móvil**: Navegación inferior tipo app
+- **Tablet**: Layout de 2 columnas
+- **Desktop**: Sidebar lateral con 3-5 columnas
+- Aprovecha todo el espacio de pantallas panorámicas
 
 ### 🔍 Funcionalidades Principales
 | Función | Descripción |
@@ -31,7 +44,20 @@
 | 📱 QR Codes | Códigos con nombre del objeto (`cec:ID:Nombre`) |
 | 📲 Escáner QR | Escanea códigos para localizar objetos al instante |
 | 🌙 Tema Oscuro | Interfaz moderna y elegante |
-| 📱 Responsive | Funciona en móvil, tablet y escritorio |
+| 📱 Responsive | Sidebar en desktop, bottom nav en móvil |
+
+---
+
+## 🆕 Novedades v0.3
+
+- **📊 Vista Base de Datos**: Nueva pestaña "BD" con tablas para gestionar espacios, contenedores y objetos
+- **📝 Descripciones**: Campo de descripción en espacios y contenedores
+- **🗂️ Navegación de 6 tabs**: Inventario, Plano, Añadir, Escanear, BD, Ajustes
+- **📱 Layout Responsive**: 
+  - Móvil: Barra de navegación inferior
+  - Desktop (1024px+): Sidebar lateral izquierdo
+  - Grids adaptativos de 1 a 5 columnas según pantalla
+- **🏠 Contenedores anidados**: Los muebles se mueven con sus habitaciones en el plano
 
 ---
 
@@ -105,7 +131,7 @@ docker-compose logs -f
 ## 📖 Uso
 
 ### 1. Crear tu primer Espacio
-1. Haz clic en **"Añadir"** en la navegación inferior
+1. Haz clic en **"Añadir"** en la navegación
 2. Selecciona **"Nuevo Espacio"**
 3. Escribe el nombre (ej: "Cocina") y pulsa Crear
 
@@ -113,7 +139,7 @@ docker-compose logs -f
 1. En la pestaña Añadir, selecciona **"Nuevo Contenedor"**
 2. Elige el Espacio padre
 3. Dale un nombre (ej: "Cajón de cubiertos")
-4. Opcionalmente, saca una foto
+4. Opcionalmente, añade una descripción y foto
 
 ### 3. Añadir Objetos
 1. Selecciona **"Nuevo Objeto"**
@@ -128,7 +154,13 @@ docker-compose logs -f
 4. Arrastra para posicionar, usa la esquina para redimensionar
 5. En modo normal, haz clic en un mueble para ver sus objetos
 
-### 5. Escanear QR
+### 5. Usar la Base de Datos
+1. Ve a la pestaña **"BD"**
+2. Filtra por Espacios, Contenedores u Objetos
+3. Usa la búsqueda para encontrar cualquier cosa
+4. Edita o elimina directamente desde aquí
+
+### 6. Escanear QR
 - Imprime el código QR de un objeto y pégalo en el contenedor físico
 - Usa la pestaña **"Escanear"** para localizarlo al instante
 
@@ -142,12 +174,13 @@ cosas-en-casa/
 │   ├── src/
 │   │   ├── components/     # Componentes React
 │   │   │   ├── FloorPlan.tsx      # Editor de plano
+│   │   │   ├── DatabaseView.tsx   # Vista de base de datos (v0.3)
 │   │   │   ├── ItemDetail.tsx     # Detalle con galería
 │   │   │   ├── InventoryList.tsx  # Lista de inventario
 │   │   │   └── ...
 │   │   ├── services/       # API client (axios)
 │   │   ├── App.tsx         # Componente principal
-│   │   └── App.css         # Estilos globales
+│   │   └── App.css         # Estilos globales + responsive
 │   └── vite.config.ts
 │
 ├── server/                 # Backend Fastify
@@ -173,8 +206,8 @@ cosas-en-casa/
 | GET | `/api/inventory` | Obtener todo el inventario |
 | GET | `/api/items/:id` | Obtener un objeto por ID |
 | GET | `/api/search?q=` | Buscar objetos |
-| POST | `/api/spaces` | Crear espacio |
-| POST | `/api/containers` | Crear contenedor |
+| POST | `/api/spaces` | Crear espacio (con descripción) |
+| POST | `/api/containers` | Crear contenedor (con descripción) |
 | POST | `/api/items` | Crear objeto |
 | PUT | `/api/spaces/:id` | Actualizar espacio |
 | PUT | `/api/containers/:id` | Actualizar contenedor |
@@ -257,9 +290,14 @@ npm run dev
 
 ## 📝 Roadmap
 
-- [x] Plano visual de la casa
-- [x] Múltiples fotos por objeto
-- [x] QR codes con nombre del objeto
+- [x] Plano visual de la casa (v0.2)
+- [x] Múltiples fotos por objeto (v0.2)
+- [x] QR codes con nombre del objeto (v0.2)
+- [x] Vista de base de datos (v0.3)
+- [x] Descripciones para espacios/contenedores (v0.3)
+- [x] Layout responsive sidebar/bottom nav (v0.3)
+- [ ] Búsqueda global en inicio
+- [ ] Plano panorámico con zoom
 - [ ] Exportar inventario a PDF/Excel
 - [ ] Modo multi-usuario
 - [ ] Sincronización en la nube
@@ -280,6 +318,6 @@ Desarrollado por VaroTv7 con ❤️ para organizar el hogar.
 ---
 
 <p align="center">
-  <strong>🏠 Cosas en Casa v0.2</strong><br>
+  <strong>🏠 Cosas en Casa v0.3</strong><br>
   <em>Organiza tu hogar, encuentra todo al instante.</em>
 </p>
