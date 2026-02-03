@@ -228,6 +228,47 @@ export default async function routes(fastify: FastifyInstance) {
 
         return { success: true };
     });
+
+    // ==================== v0.5 People API ====================
+    fastify.get('/api/people', async () => {
+        return db.prepare('SELECT * FROM people ORDER BY name ASC').all();
+    });
+
+    fastify.post('/api/people', async (request, reply) => {
+        const { name, role, contact_info } = request.body as { name: string, role?: string, contact_info?: string };
+        try {
+            const result = db.prepare('INSERT INTO people (name, role, contact_info) VALUES (?, ?, ?)').run(name, role || 'Amigo', contact_info);
+            return { id: result.lastInsertRowid, name, role, contact_info };
+        } catch (error: any) {
+            if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                return reply.code(409).send({ error: 'Person already exists' });
+            }
+            throw error;
+        }
+    });
+
+    fastify.put('/api/people/:id', async (request, reply) => {
+         const { id } = request.params as { id: string };
+         const { name, role, contact_info } = request.body as { name: string, role?: string, contact_info?: string };
+         try {
+             const result = db.prepare('UPDATE people SET name = ?, role = ?, contact_info = ? WHERE id = ?').run(name, role, contact_info, id);
+             if (result.changes === 0) return reply.code(404).send({ error: 'Person not found' });
+             return { success: true };
+         } catch (error: any) {
+             if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                 return reply.code(409).send({ error: 'Name already taken' });
+             }
+             throw error;
+         }
+    });
+
+    fastify.delete('/api/people/:id', async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const result = db.prepare('DELETE FROM people WHERE id = ?').run(id);
+        if (result.changes === 0) return reply.code(404).send({ error: 'Person not found' });
+        return { success: true };
+    });
+
     fastify.put('/api/items/:id', async (req, reply) => {
         const { id } = (req.params as { id: string });
         const parts = req.parts();
@@ -305,6 +346,57 @@ export default async function routes(fastify: FastifyInstance) {
         db.prepare(`UPDATE items SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
         return { success: true };
+    });
+
+    // v0.5: Bulk Operations
+    fastify.post('/api/items/bulk-move', async (request, reply) => {
+        const { itemIds, targetContainerId } = request.body as { itemIds: number[], targetContainerId: number };
+
+        if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+            return reply.code(400).send({ error: 'No items selected' });
+        }
+
+        const updateStmt = db.prepare('UPDATE items SET container_id = ? WHERE id = ?');
+
+        const transaction = db.transaction((ids: number[], containerId: number) => {
+            for (const id of ids) {
+                updateStmt.run(containerId, id);
+            }
+        });
+
+        try {
+            transaction(itemIds, targetContainerId);
+            reply.send({ success: true, count: itemIds.length });
+        } catch (error) {
+            console.error('Bulk move error:', error);
+            reply.code(500).send({ error: 'Failed to move items' });
+        }
+    });
+
+    fastify.post('/api/items/bulk-delete', async (request, reply) => {
+        const { itemIds } = request.body as { itemIds: number[] };
+
+        if (!itemIds || !Array.isArray(itemIds) || itemIds.length === 0) {
+            return reply.code(400).send({ error: 'No items selected' });
+        }
+
+        const deleteStmt = db.prepare('DELETE FROM items WHERE id = ?');
+        const deletePhotosStmt = db.prepare('DELETE FROM item_photos WHERE item_id = ?');
+
+        const transaction = db.transaction((ids: number[]) => {
+            for (const id of ids) {
+                deletePhotosStmt.run(id);
+                deleteStmt.run(id);
+            }
+        });
+
+        try {
+            transaction(itemIds);
+            reply.send({ success: true, count: itemIds.length });
+        } catch (error) {
+            console.error('Bulk delete error:', error);
+            reply.code(500).send({ error: 'Failed to delete items' });
+        }
     });
 
     // ==================== v0.2 APIs ====================

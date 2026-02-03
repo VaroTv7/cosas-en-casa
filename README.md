@@ -3,13 +3,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/Version-0.4-purple.svg)]()
+[![Version](https://img.shields.io/badge/Version-0.5-purple.svg)]()
 
-**Cosas en Casa** es una aplicación web de inventario doméstico profesional. Organiza, cataloga y encuentra tus pertenencias con metadatos extendidos, gestión de categorías y un plano interactivo.
+**Cosas en Casa** es una aplicación web de inventario doméstico profesional. Organiza, cataloga y encuentra tus pertenencias con metadatos extendidos, gestión de categorías, préstamos a personas y un plano interactivo.
 
 ---
 
 ## ✨ Características Principales
+
+### 👥 Gestión de Personas y Préstamos (v0.5)
+- **Agenda de Contactos**: Registra familiares y amigos para gestionar préstamos de forma ordenada.
+- **Control de Préstamos**: Asigna objetos prestados a personas específicas desde un desplegable.
+- **Alertas de Devolución**: Visualiza rápidamente qué objetos no están en casa y quién los tiene.
+
+### 📦 Operaciones en Bloque (v0.5)
+- **Selección Múltiple**: Selecciona varios objetos a la vez desde la vista de lista.
+- **Movimiento Masivo**: Mueve decenas de objetos de un contenedor a otro con un solo clic.
+- **Borrado Masivo**: Limpieza rápida de inventario obsoleto.
+- **Exportación CSV**: Descarga tu inventario seleccionado a Excel/CSV para análisis externo.
 
 ### 🏷️ Gestión de Categorías (v0.4)
 - **Categorías Personalizadas**: Crea, edita y elimina categorías con iconos y colores únicos.
@@ -24,6 +35,7 @@
   - **Videojuegos**: Plataforma, desarrollador, publisher, año y género.
   - **Electrónica**: Especificaciones técnicas y URL del manual online.
 - **Notas**: Campo extendido para cualquier información adicional.
+- **Stock Mínimo**: Define alertas para cuando te quedan pocas unidades de un consumible.
 
 ### 🗺️ Plano Visual e Interactivo
 - **Editor drag-and-drop** para crear el plano de tu casa.
@@ -32,12 +44,12 @@
 - **Interactividad**: Haz clic en un mueble para ver su contenido al instante.
 
 ### 📊 Base de Datos y Búsqueda
-- **Vista de Tablas**: Gestiona Espacios, Contenedores y Objetos de forma masiva.
+- **Vista de Tablas**: Gestiona Espacios, Contenedores, Objetos y Personas.
 - **Sincronización en Tiempo Real**: Los cambios se reflejan instantáneamente en todas las vistas.
 - **Búsqueda Avanzada**: Encuentra cualquier ítem por nombre, etiquetas o descripción.
 
 ### 📱 Diseño Moderno y Responsive
-- **Interfaz Glassmorphism**: Estética premium con efectos de desenfrenque y gradientes.
+- **Interfaz Glassmorphism**: Estética premium con efectos de desenfoque y gradientes.
 - **Totalmente Adaptable**: Sidebar lateral en escritorio y barra de navegación inferior en móvil.
 - **Micro-animaciones**: Transiciones suaves para una experiencia de usuario fluida.
 
@@ -93,9 +105,10 @@ docker-compose up -d
 
 ---
 
-## 📝 Roadmap v0.5
-- [ ] Búsqueda global desde la pantalla de inicio.
-- [ ] Exportación de inventario a PDF y Excel.
+## 📝 Roadmap v0.6+
+- [ ] Búsqueda global desde la pantalla de inicio (Omnibox).
+- [ ] Escaneo de ISBN/Códigos de Barras para auto-rellenado (OpenLibrary integration).
+- [ ] Estadísticas de valor total del inventario.
 - [ ] Modo multi-vivienda.
 - [ ] PWA (Progressive Web App) para instalación en móvil.
 
@@ -108,6 +121,6 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 ---
 
 <p align="center">
-  <strong>🏠 Cosas en Casa v0.4</strong><br>
-  <em>Organización inteligente para tu hogar.</em>
+  <strong>🏠 Cosas en Casa v0.5</strong><br>
+  <em>Organización inteligente y social para tu hogar.</em>
 </p>

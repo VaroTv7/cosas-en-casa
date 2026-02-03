@@ -114,6 +114,15 @@ export const initDb = () => {
       icon TEXT,
       color TEXT
     );
+
+    -- v0.5: People table
+    CREATE TABLE IF NOT EXISTS people (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      role TEXT DEFAULT 'Amigo',
+      contact_info TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   // v0.4: Insert default categories
@@ -161,7 +170,11 @@ export const initDb = () => {
     `ALTER TABLE items ADD COLUMN game_genre TEXT`,
     // Electronics fields
     `ALTER TABLE items ADD COLUMN tech_specs TEXT`,
-    `ALTER TABLE items ADD COLUMN tech_manual_url TEXT`
+    `ALTER TABLE items ADD COLUMN tech_manual_url TEXT`,
+    // v0.5: Loans & Stock Alerts
+    `ALTER TABLE items ADD COLUMN loaned_to TEXT`,
+    `ALTER TABLE items ADD COLUMN loaned_at TEXT`,
+    `ALTER TABLE items ADD COLUMN min_quantity INTEGER DEFAULT 0`
   ];
 
   for (const migration of itemMigrations) {
@@ -169,6 +182,15 @@ export const initDb = () => {
       db.exec(migration);
     } catch (e) { /* Column already exists */ }
   }
+
+  // v0.5: Migrate existing loaned_to names to people table
+  try {
+    const existingLoans = db.prepare("SELECT DISTINCT loaned_to FROM items WHERE loaned_to IS NOT NULL AND loaned_to != ''").all() as { loaned_to: string }[];
+    const insertPerson = db.prepare("INSERT OR IGNORE INTO people (name) VALUES (?)");
+    for (const loan of existingLoans) {
+      insertPerson.run(loan.loaned_to);
+    }
+  } catch (e) { console.error('Error migrating people:', e); }
 
   console.log('Database initialized');
 };

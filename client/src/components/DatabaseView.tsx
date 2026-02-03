@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Image as ImageIcon, Briefcase, FileText, ArrowRight } from 'lucide-react';
 import type { Space, Container, Item } from '../services/api';
-import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, getItem, createSpace, createContainer } from '../services/api';
+import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, getItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
 import ItemMetadataEditor from './ItemMetadataEditor';
 import AddItemForm from './AddItemForm';
@@ -239,6 +239,12 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
     const [selectedContainer, setSelectedContainer] = useState<(Container & { space_name?: string }) | null>(null);
     const [selectedItem, setSelectedItem] = useState<(Item & { container_name?: string }) | null>(null);
 
+    // Bulk selection state
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [targetContainerId, setTargetContainerId] = useState<number | null>(null);
+
     const loadData = async () => {
         setLoading(true);
         try {
@@ -266,6 +272,12 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
             if (updated) setSelectedItem(updated);
         }
     }, [inventory]);
+
+    // Clear multi-select when changing views
+    useEffect(() => {
+        setSelectedIds([]);
+        setIsSelectionMode(false);
+    }, [activeTab, selectedSpace, selectedContainer]);
 
     useEffect(() => { loadData(); }, []);
 
@@ -303,6 +315,69 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         }
     };
 
+
+
+    // Bulk Actions
+    const toggleSelection = (id: number) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkDelete = async () => {
+        if (!confirm(`¿Estás seguro de eliminar ${selectedIds.length} elementos? Esta acción no se puede deshacer.`)) return;
+        try {
+            await bulkDeleteItems(selectedIds);
+            setSelectedIds([]);
+            setIsSelectionMode(false);
+            loadData();
+        } catch (error) {
+            alert('Error al eliminar elementos');
+        }
+    };
+
+    const handleBulkMove = async () => {
+        if (!targetContainerId) return alert('Selecciona un destino');
+        try {
+            await bulkMoveItems(selectedIds, targetContainerId);
+            setShowMoveModal(false);
+            setSelectedIds([]);
+            setIsSelectionMode(false);
+            loadData();
+        } catch (error) {
+            alert('Error al mover elementos');
+        }
+    };
+
+    const handleExportCSV = () => {
+        const itemsToExport = selectedIds.length > 0
+            ? filteredItems.filter(i => selectedIds.includes(i.id))
+            : filteredItems;
+
+        const headers = ['ID', 'Nombre', 'Cantidad', 'Contenedor', 'Ubicación', 'Descripción', 'Categoría', 'Prestado A'];
+        const rows = itemsToExport.map(item => [
+            item.id,
+            item.name,
+            item.quantity,
+            item.container_name || '',
+            allContainers.find(c => c.name === item.container_name)?.space_name || '',
+            item.description || '',
+            item.category_id || '',
+            item.loaned_to || ''
+        ]);
+
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "inventario.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const tabs: { key: EntityType; label: string; icon: React.ReactNode }[] = [
         { key: 'spaces', label: 'Espacios', icon: <Home size={18} /> },
         { key: 'containers', label: 'Contenedores', icon: <Box size={18} /> },
@@ -313,15 +388,28 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
     const renderClickableRow = (type: EntityType, entity: any, onClick: () => void, childCount?: number) => (
         <div
             key={`${type}-${entity.id}`}
-            onClick={onClick}
+            onClick={isSelectionMode && type === 'items' ? () => toggleSelection(entity.id) : onClick}
             style={{
                 display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
-                background: 'var(--glass-bg)', borderRadius: '10px', marginBottom: '8px',
-                cursor: 'pointer', transition: 'background 0.2s'
+                background: selectedIds.includes(entity.id) ? 'rgba(59, 130, 246, 0.3)' : 'var(--glass-bg)',
+                borderRadius: '10px', marginBottom: '8px',
+                cursor: 'pointer', transition: 'background 0.2s',
+                border: selectedIds.includes(entity.id) ? '1px solid #3b82f6' : '1px solid transparent'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--glass-bg)'}
+            onMouseEnter={(e) => !selectedIds.includes(entity.id) && (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)')}
+            onMouseLeave={(e) => !selectedIds.includes(entity.id) && (e.currentTarget.style.background = 'var(--glass-bg)')}
         >
+            {isSelectionMode && type === 'items' && (
+                <div style={{
+                    width: '20px', height: '20px', borderRadius: '4px',
+                    border: '2px solid rgba(255,255,255,0.5)',
+                    background: selectedIds.includes(entity.id) ? '#3b82f6' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginRight: '8px'
+                }}>
+                    {selectedIds.includes(entity.id) && <div style={{ width: '10px', height: '10px', background: 'white', borderRadius: '2px' }} />}
+                </div>
+            )}
             <div style={{
                 width: '40px', height: '40px', borderRadius: '10px',
                 background: type === 'spaces' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' :
@@ -521,6 +609,34 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                         ))}
                     </div>
 
+                    {/* Bulk Action Toolbar */}
+                    {activeTab === 'items' && (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
+                            <button
+                                onClick={() => { setIsSelectionMode(!isSelectionMode); setSelectedIds([]); }}
+                                style={{ ...actionButtonStyle, background: isSelectionMode ? 'var(--primary)' : 'rgba(255,255,255,0.1)' }}
+                            >
+                                {isSelectionMode ? <X size={16} /> : <Briefcase size={16} />}
+                                {isSelectionMode ? 'Cancelar' : 'Seleccionar'}
+                            </button>
+
+                            {isSelectionMode && selectedIds.length > 0 && (
+                                <>
+                                    <button onClick={() => setShowMoveModal(true)} style={actionButtonStyle}>
+                                        <ArrowRight size={16} /> Mover ({selectedIds.length})
+                                    </button>
+                                    <button onClick={handleBulkDelete} style={{ ...actionButtonStyle, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>
+                                        <Trash2 size={16} /> Borrar ({selectedIds.length})
+                                    </button>
+                                </>
+                            )}
+
+                            <button onClick={handleExportCSV} style={actionButtonStyle}>
+                                <FileText size={16} /> CSV
+                            </button>
+                        </div>
+                    )}
+
                     {/* Add button */}
                     <button
                         onClick={() => setShowAddForm(activeTab === 'spaces' ? 'space' : activeTab === 'containers' ? 'container' : 'item')}
@@ -596,8 +712,49 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                     </div>
                 </div>
             )}
+
+
+            {/* Move Modal */}
+            {showMoveModal && (
+                <div style={{
+                    position: 'fixed', inset: 0,
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200
+                }}>
+                    <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '12px', width: '90%', maxWidth: '400px', border: '1px solid var(--border)' }}>
+                        <h3 style={{ marginTop: 0 }}>Mover {selectedIds.length} elementos a...</h3>
+                        <div style={{ maxHeight: '300px', overflowY: 'auto', margin: '15px 0' }}>
+                            {allContainers.map(c => (
+                                <div
+                                    key={c.id}
+                                    onClick={() => setTargetContainerId(c.id)}
+                                    style={{
+                                        padding: '10px', borderBottom: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                                        background: targetContainerId === c.id ? 'var(--primary)' : 'transparent',
+                                        borderRadius: '6px'
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 'bold' }}>{c.name}</div>
+                                    <div style={{ opacity: 0.5, fontSize: '0.8em' }}>{c.space_name}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button onClick={() => setShowMoveModal(false)} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer' }}>Cancelar</button>
+                            <button onClick={handleBulkMove} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: 'var(--primary)', color: 'white', cursor: 'pointer' }}>Mover</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
+};
+
+const actionButtonStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: '6px',
+    padding: '8px 12px', borderRadius: '8px',
+    background: 'rgba(255,255,255,0.1)', border: 'none',
+    color: 'white', cursor: 'pointer', fontSize: '0.9em',
+    whiteSpace: 'nowrap'
 };
 
 export default DatabaseView;

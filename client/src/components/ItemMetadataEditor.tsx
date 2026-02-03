@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield, FileText, Settings } from 'lucide-react';
+import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield, FileText, Settings, UserMinus, AlertCircle } from 'lucide-react';
 import CategoryManager from './CategoryManager';
-import type { Item, Category } from '../services/api';
-import { getCategories, updateItem } from '../services/api';
+import type { Item, Category, Person } from '../services/api';
+import { getCategories, updateItem, getPeople } from '../services/api';
 
 interface Props {
     item: Item;
@@ -19,7 +19,8 @@ const CONDITIONS = [
 
 const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
     const [categories, setCategories] = useState<Category[]>([]);
-    const [activeTab, setActiveTab] = useState<'general' | 'purchase' | 'category' | 'notes'>('general');
+    const [people, setPeople] = useState<Person[]>([]);
+    const [activeTab, setActiveTab] = useState<'general' | 'purchase' | 'category' | 'management' | 'notes'>('general');
     const [saving, setSaving] = useState(false);
     const [showCategoryManager, setShowCategoryManager] = useState(false);
 
@@ -52,12 +53,23 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
         // Tech
         tech_specs: item.tech_specs || '',
         tech_manual_url: item.tech_manual_url || '',
+        // Management (v0.5)
+        loaned_to: item.loaned_to || '',
+        loaned_at: item.loaned_at || '',
+        min_quantity: item.min_quantity || 0,
         // Notes
         notes: item.notes || ''
     });
 
     useEffect(() => {
-        getCategories().then(setCategories).catch(console.error);
+        const loadData = async () => {
+            try {
+                const [cats, peeps] = await Promise.all([getCategories(), getPeople()]);
+                setCategories(cats);
+                setPeople(peeps);
+            } catch (e) { console.error(e); }
+        };
+        loadData();
     }, []);
 
     const selectedCategory = categories.find((c: Category) => c.id === Number(formData.category_id));
@@ -269,6 +281,51 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
         );
     };
 
+    const renderManagementTab = () => (
+        <div>
+            <h4 style={{ margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}><AlertCircle size={18} /> Control de Stock</h4>
+            <div style={fieldGroup}>
+                <label style={labelStyle}>Cantidad mínima (Alerta)</label>
+                <input
+                    type="number"
+                    value={formData.min_quantity}
+                    onChange={e => handleChange('min_quantity', e.target.value)}
+                    style={inputStyle}
+                    placeholder="0 = sin alerta"
+                />
+                <p style={{ fontSize: '0.75em', opacity: 0.6, marginTop: '4px' }}>
+                    Se mostrará una alerta cuando la cantidad actual sea igual o menor a este valor.
+                </p>
+            </div>
+
+            <h4 style={{ margin: '24px 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}><UserMinus size={18} /> Gestión de Préstamos</h4>
+            <div style={fieldGroup}>
+                <label style={labelStyle}>Prestado a</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <select
+                        value={formData.loaned_to}
+                        onChange={e => handleChange('loaned_to', e.target.value)}
+                        style={{ ...inputStyle, flex: 1 }}
+                    >
+                        <option value="">-- Nadie --</option>
+                        {people.map(p => (
+                            <option key={p.id} value={p.name}>{p.name} ({p.role})</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            <div style={fieldGroup}>
+                <label style={labelStyle}>Fecha de préstamo</label>
+                <input
+                    type="date"
+                    value={formData.loaned_at}
+                    onChange={e => handleChange('loaned_at', e.target.value)}
+                    style={inputStyle}
+                />
+            </div>
+        </div>
+    );
+
     const renderNotesTab = () => (
         <div>
             <div style={fieldGroup}>
@@ -283,9 +340,12 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
         </div>
     );
 
+
+
     const tabs = [
         { id: 'general', label: 'General', icon: <Package size={16} /> },
         { id: 'purchase', label: 'Compra', icon: <DollarSign size={16} /> },
+        { id: 'management', label: 'Gestión', icon: <AlertCircle size={16} /> },
         { id: 'category', label: 'Detalles', icon: selectedCategory ? null : <FileText size={16} /> },
         { id: 'notes', label: 'Notas', icon: <FileText size={16} /> }
     ];
@@ -333,6 +393,7 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px' }}>
                     {activeTab === 'general' && renderGeneralTab()}
                     {activeTab === 'purchase' && renderPurchaseTab()}
+                    {activeTab === 'management' && renderManagementTab()}
                     {activeTab === 'category' && renderCategoryTab()}
                     {activeTab === 'notes' && renderNotesTab()}
                 </div>

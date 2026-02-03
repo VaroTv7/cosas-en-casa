@@ -58,6 +58,11 @@ export interface Item {
     // Electronics fields
     tech_specs?: string;
     tech_manual_url?: string;
+
+    // v0.5: Loans & Stock
+    loaned_to?: string;
+    loaned_at?: string;
+    min_quantity?: number;
 }
 
 export interface Category {
@@ -65,6 +70,13 @@ export interface Category {
     name: string;
     icon?: string;
     color?: string;
+}
+
+export interface Person {
+    id: number;
+    name: string;
+    role?: string;
+    contact_info?: string;
 }
 
 export const getInventory = async () => {
@@ -132,6 +144,17 @@ export const getItem = async (id: number | string) => {
 
 export const searchItems = async (query: string) => {
     const response = await api.get<Item[]>(`/search?q=${encodeURIComponent(query)}`);
+    return response.data;
+};
+
+// v0.5: Bulk Operations
+export const bulkMoveItems = async (itemIds: number[], targetContainerId: number) => {
+    const response = await api.post('/items/bulk-move', { itemIds, targetContainerId });
+    return response.data;
+};
+
+export const bulkDeleteItems = async (itemIds: number[]) => {
+    const response = await api.post('/items/bulk-delete', { itemIds });
     return response.data;
 };
 
@@ -280,6 +303,28 @@ export const updateCategory = async (id: number, data: { name?: string; icon?: s
 
 export const deleteCategory = async (id: number) => {
     const response = await api.delete(`/categories/${id}`);
+    return response.data;
+};
+
+// ==================== v0.5 People API ====================
+
+export const getPeople = async () => {
+    const response = await api.get<Person[]>('/people');
+    return response.data;
+};
+
+export const createPerson = async (data: { name: string; role?: string; contact_info?: string }) => {
+    const response = await api.post('/people', data);
+    return response.data;
+};
+
+export const updatePerson = async (id: number, data: { name: string; role?: string; contact_info?: string }) => {
+    const response = await api.put(`/people/${id}`, data);
+    return response.data;
+};
+
+export const deletePerson = async (id: number) => {
+    const response = await api.delete(`/people/${id}`);
     return response.data;
 };
 
