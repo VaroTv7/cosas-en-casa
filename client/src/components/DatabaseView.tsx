@@ -4,6 +4,7 @@ import type { Space, Container, Item } from '../services/api';
 import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, getItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
 import ItemMetadataEditor from './ItemMetadataEditor';
+import ItemDetail from './ItemDetail';
 import AddItemForm from './AddItemForm';
 
 type EntityType = 'spaces' | 'containers' | 'items';
@@ -140,87 +141,7 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
 };
 
 // Item Detail Panel
-interface ItemDetailPanelProps {
-    item: Item & { container_name?: string };
-    onClose: () => void;
-    onEdit: () => void;
-}
 
-const ItemDetailPanel: React.FC<ItemDetailPanelProps> = ({ item, onClose, onEdit }) => {
-    const [fullItem, setFullItem] = useState<any>(null);
-
-    useEffect(() => {
-        getItem(item.id).then(setFullItem).catch(console.error);
-    }, [item.id, item]); // Added item as dependency to refresh when DatabaseView updates its selectedItem state
-
-    const qrValue = `cec:${item.id}:${item.name}`;
-
-    return (
-        <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-        }}>
-            <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <button onClick={onClose} style={{ background: 'transparent', padding: '5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <ArrowLeft size={20} /> Volver
-                    </button>
-                    <button onClick={onEdit} style={{ padding: '8px 16px', background: 'var(--accent)', borderRadius: '8px' }}>
-                        <PenLine size={16} /> Editar
-                    </button>
-                </div>
-
-                {/* Photo */}
-                {(fullItem?.photo_url || item.photo_url) ? (
-                    <img
-                        src={fullItem?.photo_url || item.photo_url}
-                        alt={item.name}
-                        style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '12px', marginBottom: '1rem' }}
-                    />
-                ) : (
-                    <div style={{
-                        width: '100%', height: '150px', background: 'var(--glass-bg)', borderRadius: '12px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem'
-                    }}>
-                        <ImageIcon size={48} style={{ opacity: 0.3 }} />
-                    </div>
-                )}
-
-                <h2 style={{ margin: '0 0 0.5rem 0' }}>{item.name}</h2>
-
-                {item.container_name && (
-                    <div style={{ fontSize: '0.9em', opacity: 0.7, marginBottom: '0.5rem' }}>
-                        📦 En: <strong>{item.container_name}</strong>
-                    </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                    <div style={{ padding: '8px 16px', background: 'var(--glass-bg)', borderRadius: '8px' }}>
-                        <strong>Cantidad:</strong> {item.quantity}
-                    </div>
-                    {fullItem?.tags && (
-                        <div style={{ padding: '8px 16px', background: 'var(--glass-bg)', borderRadius: '8px' }}>
-                            🏷️ {fullItem.tags}
-                        </div>
-                    )}
-                </div>
-
-                {(item.description || fullItem?.description) && (
-                    <div style={{ padding: '1rem', background: 'var(--glass-bg)', borderRadius: '8px', marginBottom: '1rem' }}>
-                        <strong>Descripción:</strong>
-                        <p style={{ margin: '0.5rem 0 0 0', opacity: 0.9 }}>{item.description || fullItem?.description}</p>
-                    </div>
-                )}
-
-                {/* QR Code */}
-                <div style={{ textAlign: 'center', padding: '1rem', background: 'white', borderRadius: '12px' }}>
-                    <QRCodeSVG value={qrValue} size={120} />
-                    <p style={{ margin: '0.5rem 0 0 0', color: '#333', fontSize: '0.8em' }}>{qrValue}</p>
-                </div>
-            </div>
-        </div>
-    );
-};
 
 interface DatabaseViewProps {
     onSelectItem?: (item: any) => void;
@@ -677,12 +598,15 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                 </>
             )}
 
-            {/* Item Detail Panel */}
+            {/* Item Detail Panel (Shared Component) */}
             {selectedItem && (
-                <ItemDetailPanel
+                <ItemDetail
                     item={selectedItem}
                     onClose={() => setSelectedItem(null)}
-                    onEdit={() => { setEditingEntity({ type: 'items', entity: selectedItem }); }}
+                    onUpdate={() => {
+                        setSelectedItem(null);
+                        loadData();
+                    }}
                 />
             )}
 

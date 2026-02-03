@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Item, ItemPhoto, Category } from '../services/api';
 import { deleteItem, getItemPhotos, addItemPhoto, deleteItemPhoto, generateQRContent, getCategories } from '../services/api';
-import { X, Trash2, Edit, Plus, ChevronLeft, ChevronRight, Image, Info, Tag, Shield, DollarSign, Book, Gamepad2, Laptop, FileText, Package } from 'lucide-react';
+import { X, Trash2, Edit, Plus, ChevronLeft, ChevronRight, Image, Info, Tag, Shield, DollarSign, Book, Gamepad2, Laptop, FileText, Package, UserMinus } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import ItemMetadataEditor from './ItemMetadataEditor';
 
@@ -12,6 +12,7 @@ interface Props {
 }
 
 const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
+    console.log('DEBUG ITEM DETAIL:', item);
     // Photos state
     const [photos, setPhotos] = useState<ItemPhoto[]>([]);
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -169,8 +170,34 @@ const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
                             </button>
                         </div>
                     </div>
-                    <p style={{ opacity: 0.8, margin: 0 }}>Cantidad: {item.quantity}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <p style={{ opacity: 0.8, margin: 0 }}>Cantidad: {item.quantity}</p>
+                        {item.min_quantity !== undefined && item.min_quantity > 0 && (
+                            <div style={{
+                                fontSize: '0.75em',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                background: item.quantity <= item.min_quantity ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                                color: item.quantity <= item.min_quantity ? '#ef4444' : '#10b981',
+                                border: `1px solid ${item.quantity <= item.min_quantity ? '#ef4444' : '#10b981'}`
+                            }}>
+                                {item.quantity <= item.min_quantity ? 'Stock Bajo' : 'Stock OK'} (Min: {item.min_quantity})
+                            </div>
+                        )}
+                    </div>
                 </div>
+
+                {item.loaned_to && (
+                    <div className="card" style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '12px', border: '1px solid #3b82f6', marginBottom: '1rem' }}>
+                        <h4 style={{ margin: '0 0 5px', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '6px', color: '#3b82f6' }}>
+                            <UserMinus size={16} /> En Préstamo
+                        </h4>
+                        <div style={{ fontSize: '0.9em' }}>
+                            Prestado a <strong>{item.loaned_to}</strong>
+                            {item.loaned_at && <span style={{ opacity: 0.7 }}> el {new Date(item.loaned_at).toLocaleDateString()}</span>}
+                        </div>
+                    </div>
+                )}
 
                 {item.description && <p style={{ fontStyle: 'italic', marginBottom: '1rem' }}>"{item.description}"</p>}
 
@@ -242,6 +269,9 @@ const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
                                     <>
                                         <div><Book size={14} style={{ marginRight: 6 }} /><span style={{ opacity: 0.7 }}>Autor:</span> {item.book_author}</div>
                                         {item.book_publisher && <div><span style={{ opacity: 0.7 }}>Editorial:</span> {item.book_publisher}</div>}
+                                        {item.book_year && <div><span style={{ opacity: 0.7 }}>Año:</span> {item.book_year}</div>}
+                                        {item.book_pages && <div><span style={{ opacity: 0.7 }}>Páginas:</span> {item.book_pages}</div>}
+                                        {item.book_genre && <div><span style={{ opacity: 0.7 }}>Género:</span> {item.book_genre}</div>}
                                         {item.book_isbn && <div><span style={{ opacity: 0.7 }}>ISBN:</span> {item.book_isbn}</div>}
                                     </>
                                 )}
@@ -249,6 +279,9 @@ const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
                                     <>
                                         <div><Gamepad2 size={14} style={{ marginRight: 6 }} /><span style={{ opacity: 0.7 }}>Plataforma:</span> {item.game_platform}</div>
                                         {item.game_developer && <div><span style={{ opacity: 0.7 }}>Desarrollador:</span> {item.game_developer}</div>}
+                                        {item.game_publisher && <div><span style={{ opacity: 0.7 }}>Publisher:</span> {item.game_publisher}</div>}
+                                        {item.game_year && <div><span style={{ opacity: 0.7 }}>Año:</span> {item.game_year}</div>}
+                                        {item.game_genre && <div><span style={{ opacity: 0.7 }}>Género:</span> {item.game_genre}</div>}
                                     </>
                                 )}
                                 {item.tech_specs && (
@@ -313,14 +346,16 @@ const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
 
             </div>
 
-            {showMetadataEditor && (
-                <ItemMetadataEditor
-                    item={item}
-                    onClose={() => setShowMetadataEditor(false)}
-                    onSaved={() => { setShowMetadataEditor(false); onUpdate(); }}
-                />
-            )}
-        </div>
+            {
+                showMetadataEditor && (
+                    <ItemMetadataEditor
+                        item={item}
+                        onClose={() => setShowMetadataEditor(false)}
+                        onSaved={() => { setShowMetadataEditor(false); onUpdate(); }}
+                    />
+                )
+            }
+        </div >
     );
 };
 
