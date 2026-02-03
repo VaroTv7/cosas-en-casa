@@ -16,9 +16,11 @@
 - **Contenedores** (Muebles): Armario, Cajón, Estantería...
 - **Objetos** (Items): Tus pertenencias con foto, cantidad y descripción
 
-### 🗺️ Plano Visual de la Casa (v0.2)
+### 🗺️ Plano Visual de la Casa (v0.2 → v0.3)
 - **Editor drag-and-drop** para crear el plano de tu casa
 - **Habitaciones redimensionables** con colores personalizados
+- **Muebles redimensionables** (v0.3): ajusta el tamaño de cada mueble
+- **Zoom y pan** (v0.3): navega por planos grandes con +/- y arrastre
 - **Muebles interactivos**: haz clic para ver todos los objetos
 - **Contenedores anidados** en habitaciones - se mueven juntos
 - **Vista rápida** de dónde está cada cosa
@@ -58,6 +60,8 @@
   - Desktop (1024px+): Sidebar lateral izquierdo
   - Grids adaptativos de 1 a 5 columnas según pantalla
 - **🏠 Contenedores anidados**: Los muebles se mueven con sus habitaciones en el plano
+- **🔍 Zoom/Pan en Plano**: Botones +/- y arrastre para navegar planos grandes
+- **📐 Muebles redimensionables**: Cambia el tamaño de cada mueble en modo edición
 
 ---
 
