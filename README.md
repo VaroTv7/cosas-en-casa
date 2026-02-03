@@ -112,6 +112,17 @@ docker-compose up -d
 - [ ] Modo multi-vivienda.
 - [ ] PWA (Progressive Web App) para instalación en móvil.
 
+## 📰 Changelog
+
+### v0.5.2 (Stability & Polish)
+- **Vista Unificada**: La vista de "Base de Datos" ahora utiliza la misma ficha de objeto detallada que el panel principal.
+- **Correcciones**: Arreglado un error que ocultaba metadatos extendidos (año, préstamos, stock) en ciertas vistas.
+
+### v0.5 (Major Release)
+- **Gestión de Personas**: Agenda de contactos y préstamos.
+- **Alertas de Stock**: Indicadores visuales para stock bajo.
+- **Bulk Actions**: Movimiento y borrado masivo de objetos.
+
 ---
 
 ## 📄 Licencia
