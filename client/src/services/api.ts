@@ -30,6 +30,41 @@ export interface Item {
     tags?: string;
     expiration_date?: string;
     photo_url?: string;
+    // v0.4 Extended metadata
+    category_id?: number;
+    serial_number?: string;
+    brand?: string;
+    model?: string;
+    purchase_date?: string;
+    purchase_price?: number;
+    purchase_location?: string;
+    warranty_months?: number;
+    warranty_end?: string;
+    condition?: string;
+    notes?: string;
+    // Book fields
+    book_author?: string;
+    book_publisher?: string;
+    book_year?: number;
+    book_pages?: number;
+    book_isbn?: string;
+    book_genre?: string;
+    // Game fields
+    game_platform?: string;
+    game_developer?: string;
+    game_publisher?: string;
+    game_year?: number;
+    game_genre?: string;
+    // Electronics fields
+    tech_specs?: string;
+    tech_manual_url?: string;
+}
+
+export interface Category {
+    id: number;
+    name: string;
+    icon?: string;
+    color?: string;
 }
 
 export const getInventory = async () => {
@@ -223,6 +258,28 @@ export const updateContainerPosition = async (id: number, data: { room_layout_id
 
 export const deleteContainerPosition = async (id: number) => {
     const response = await api.delete(`/container-positions/${id}`);
+    return response.data;
+};
+
+// ==================== v0.4 Categories API ====================
+
+export const getCategories = async () => {
+    const response = await api.get<Category[]>('/categories');
+    return response.data;
+};
+
+export const createCategory = async (data: { name: string; icon?: string; color?: string }) => {
+    const response = await api.post('/categories', data);
+    return response.data;
+};
+
+export const updateCategory = async (id: number, data: { name?: string; icon?: string; color?: string }) => {
+    const response = await api.put(`/categories/${id}`, data);
+    return response.data;
+};
+
+export const deleteCategory = async (id: number) => {
+    const response = await api.delete(`/categories/${id}`);
     return response.data;
 };
 

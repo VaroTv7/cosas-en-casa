@@ -80,32 +80,56 @@ export default async function routes(fastify: FastifyInstance) {
         return { id: result.lastInsertRowid, photo_url };
     });
 
-    // POST Item (Multipart)
+    // POST Item (Multipart with extended metadata)
     fastify.post('/api/items', async (req, reply) => {
         const parts = req.parts();
-        let name, container_id, quantity, description, tags, expiration_date, photo_url;
+        const fields: Record<string, any> = {};
+        let photo_url: string | null = null;
 
         for await (const part of parts) {
             if (part.type === 'file') {
                 photo_url = await saveImage(part);
             } else {
-                const val = (part.value as string);
-                if (part.fieldname === 'name') name = val;
-                if (part.fieldname === 'container_id') container_id = parseInt(val);
-                if (part.fieldname === 'quantity') quantity = parseInt(val);
-                if (part.fieldname === 'description') description = val;
-                if (part.fieldname === 'tags') tags = val;
-                if (part.fieldname === 'expiration_date') expiration_date = val;
+                fields[part.fieldname] = part.value as string;
             }
         }
 
+        const name = fields.name;
+        const container_id = fields.container_id ? parseInt(fields.container_id) : null;
         if (!name || !container_id) return reply.status(400).send({ error: 'Falta nombre o ID de contenedor' });
 
         const stmt = db.prepare(`
-            INSERT INTO items (name, container_id, quantity, description, tags, expiration_date, photo_url)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO items (
+                name, container_id, quantity, description, tags, expiration_date, photo_url,
+                category_id, serial_number, brand, model, purchase_date, purchase_price, purchase_location,
+                warranty_months, warranty_end, condition, notes,
+                book_author, book_publisher, book_year, book_pages, book_isbn, book_genre,
+                game_platform, game_developer, game_publisher, game_year, game_genre,
+                tech_specs, tech_manual_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
-        const result = stmt.run(name, container_id, quantity || 1, description, tags, expiration_date, photo_url);
+        const result = stmt.run(
+            name, container_id,
+            fields.quantity ? parseInt(fields.quantity) : 1,
+            fields.description || null, fields.tags || null, fields.expiration_date || null, photo_url,
+            fields.category_id ? parseInt(fields.category_id) : null,
+            fields.serial_number || null, fields.brand || null, fields.model || null,
+            fields.purchase_date || null,
+            fields.purchase_price ? parseFloat(fields.purchase_price) : null,
+            fields.purchase_location || null,
+            fields.warranty_months ? parseInt(fields.warranty_months) : null,
+            fields.warranty_end || null,
+            fields.condition || 'buen_estado',
+            fields.notes || null,
+            fields.book_author || null, fields.book_publisher || null,
+            fields.book_year ? parseInt(fields.book_year) : null,
+            fields.book_pages ? parseInt(fields.book_pages) : null,
+            fields.book_isbn || null, fields.book_genre || null,
+            fields.game_platform || null, fields.game_developer || null, fields.game_publisher || null,
+            fields.game_year ? parseInt(fields.game_year) : null,
+            fields.game_genre || null,
+            fields.tech_specs || null, fields.tech_manual_url || null
+        );
         return { id: result.lastInsertRowid, photo_url };
     });
 
@@ -207,7 +231,8 @@ export default async function routes(fastify: FastifyInstance) {
     fastify.put('/api/items/:id', async (req, reply) => {
         const { id } = (req.params as { id: string });
         const parts = req.parts();
-        let name, container_id, quantity, description, tags, expiration_date, photo_url;
+        const fields: Record<string, any> = {};
+        let photo_url: string | null | undefined;
 
         // Get current item to preserve photo if not updated
         const currentItem = db.prepare('SELECT photo_url FROM items WHERE id = ?').get(id) as { photo_url: string };
@@ -218,27 +243,61 @@ export default async function routes(fastify: FastifyInstance) {
             if (part.type === 'file') {
                 photo_url = await saveImage(part);
             } else {
-                const val = (part.value as string);
-                if (part.fieldname === 'name') name = val;
-                if (part.fieldname === 'container_id') container_id = parseInt(val);
-                if (part.fieldname === 'quantity') quantity = parseInt(val);
-                if (part.fieldname === 'description') description = val;
-                if (part.fieldname === 'tags') tags = val;
-                if (part.fieldname === 'expiration_date') expiration_date = val;
+                fields[part.fieldname] = part.value as string;
             }
         }
 
-        // Dynamic update query
+        // Build dynamic update
         const updates: string[] = [];
         const values: any[] = [];
 
-        if (name) { updates.push('name = ?'); values.push(name); }
-        if (container_id) { updates.push('container_id = ?'); values.push(container_id); }
-        if (quantity) { updates.push('quantity = ?'); values.push(quantity); }
-        if (description !== undefined) { updates.push('description = ?'); values.push(description); }
-        if (tags !== undefined) { updates.push('tags = ?'); values.push(tags); }
-        if (expiration_date !== undefined) { updates.push('expiration_date = ?'); values.push(expiration_date); }
-        if (photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
+        const addField = (dbField: string, value: any, parser?: (v: string) => any) => {
+            if (value !== undefined) {
+                updates.push(`${dbField} = ?`);
+                values.push(value === '' ? null : (parser ? parser(value) : value));
+            }
+        };
+
+        // Basic fields
+        addField('name', fields.name);
+        addField('container_id', fields.container_id, parseInt);
+        addField('quantity', fields.quantity, parseInt);
+        addField('description', fields.description);
+        addField('tags', fields.tags);
+        addField('expiration_date', fields.expiration_date);
+        if (photo_url !== currentItem.photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
+
+        // v0.4 Extended fields
+        addField('category_id', fields.category_id, parseInt);
+        addField('serial_number', fields.serial_number);
+        addField('brand', fields.brand);
+        addField('model', fields.model);
+        addField('purchase_date', fields.purchase_date);
+        addField('purchase_price', fields.purchase_price, parseFloat);
+        addField('purchase_location', fields.purchase_location);
+        addField('warranty_months', fields.warranty_months, parseInt);
+        addField('warranty_end', fields.warranty_end);
+        addField('condition', fields.condition);
+        addField('notes', fields.notes);
+
+        // Book fields
+        addField('book_author', fields.book_author);
+        addField('book_publisher', fields.book_publisher);
+        addField('book_year', fields.book_year, parseInt);
+        addField('book_pages', fields.book_pages, parseInt);
+        addField('book_isbn', fields.book_isbn);
+        addField('book_genre', fields.book_genre);
+
+        // Game fields
+        addField('game_platform', fields.game_platform);
+        addField('game_developer', fields.game_developer);
+        addField('game_publisher', fields.game_publisher);
+        addField('game_year', fields.game_year, parseInt);
+        addField('game_genre', fields.game_genre);
+
+        // Tech fields
+        addField('tech_specs', fields.tech_specs);
+        addField('tech_manual_url', fields.tech_manual_url);
 
         if (updates.length === 0) return { success: true, message: 'Nada que actualizar' };
 
@@ -427,6 +486,62 @@ export default async function routes(fastify: FastifyInstance) {
         const { id } = req.params;
         const result = db.prepare('DELETE FROM container_positions WHERE id = ?').run(id);
         if (result.changes === 0) return reply.status(404).send({ error: 'Posición no encontrada' });
+        return { success: true };
+    });
+
+    // ==================== v0.4 Categories API ====================
+
+    // GET all categories
+    fastify.get('/api/categories', async () => {
+        return db.prepare('SELECT * FROM categories ORDER BY name').all();
+    });
+
+    // POST create category
+    fastify.post('/api/categories', async (req: FastifyRequest<{ Body: { name: string, icon?: string, color?: string } }>, reply) => {
+        const { name, icon, color } = req.body;
+        if (!name) return reply.status(400).send({ error: 'Nombre requerido' });
+
+        try {
+            const result = db.prepare('INSERT INTO categories (name, icon, color) VALUES (?, ?, ?)').run(name, icon || 'package', color || '#6b7280');
+            return { id: result.lastInsertRowid };
+        } catch (err: any) {
+            if (err.message?.includes('UNIQUE')) {
+                return reply.status(400).send({ error: 'La categoría ya existe' });
+            }
+            throw err;
+        }
+    });
+
+    // PUT update category
+    fastify.put('/api/categories/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { name?: string, icon?: string, color?: string } }>, reply) => {
+        const { id } = req.params;
+        const { name, icon, color } = req.body;
+
+        const updates: string[] = [];
+        const values: any[] = [];
+        if (name) { updates.push('name = ?'); values.push(name); }
+        if (icon) { updates.push('icon = ?'); values.push(icon); }
+        if (color) { updates.push('color = ?'); values.push(color); }
+
+        if (updates.length === 0) return { success: true };
+
+        values.push(id);
+        const result = db.prepare(`UPDATE categories SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Categoría no encontrada' });
+        return { success: true };
+    });
+
+    // DELETE category
+    fastify.delete('/api/categories/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        const { id } = req.params;
+        // Don't allow deleting if items use this category
+        const itemCount = db.prepare('SELECT count(*) as count FROM items WHERE category_id = ?').get(id) as { count: number };
+        if (itemCount.count > 0) {
+            return reply.status(400).send({ error: `Hay ${itemCount.count} objetos usando esta categoría` });
+        }
+
+        const result = db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Categoría no encontrada' });
         return { success: true };
     });
 }

@@ -1,34 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Image as ImageIcon } from 'lucide-react';
-import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, updateItem, createSpace, createContainer, createItem, getItem } from '../services/api';
+import type { Space, Container, Item } from '../services/api';
+import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, getItem, createSpace, createContainer } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
-
-interface Space {
-    id: number;
-    name: string;
-    description?: string;
-    parent_id?: number;
-    containers: Container[];
-}
-
-interface Container {
-    id: number;
-    name: string;
-    description?: string;
-    space_id?: number;
-    photo_url?: string;
-    items: Item[];
-}
-
-interface Item {
-    id: number;
-    name: string;
-    description?: string;
-    container_id?: number;
-    quantity: number;
-    photo_url?: string;
-    tags?: string;
-}
+import ItemMetadataEditor from './ItemMetadataEditor';
+import AddItemForm from './AddItemForm';
 
 type EntityType = 'spaces' | 'containers' | 'items';
 
@@ -45,9 +21,9 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
     const [name, setName] = useState(entity?.name || '');
     const [description, setDescription] = useState(entity?.description || '');
     const [parentId, setParentId] = useState(entity?.parent_id || entity?.space_id || entity?.container_id || '');
-    const [quantity, setQuantity] = useState(entity?.quantity || 1);
     const [saving, setSaving] = useState(false);
 
+    const isItem = type === 'items';
     const isNew = !entity?.id;
 
     const handleSave = async () => {
@@ -69,17 +45,10 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                 } else {
                     await updateContainer(entity.id, formData);
                 }
-            } else if (type === 'items') {
-                const formData = new FormData();
-                formData.append('name', name);
-                formData.append('description', description);
-                formData.append('quantity', quantity.toString());
-                if (parentId) formData.append('container_id', parentId.toString());
-                if (isNew) {
-                    await createItem(formData);
-                } else {
-                    await updateItem(entity.id, formData);
-                }
+            } else if (isItem && isNew) {
+                // Handled by AddItemForm now
+                onSave();
+                return;
             }
             onSave();
         } catch (err) {
@@ -88,6 +57,16 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
             setSaving(false);
         }
     };
+
+    if (isItem && !isNew) {
+        return (
+            <ItemMetadataEditor
+                item={entity as Item}
+                onClose={onClose}
+                onSaved={onSave}
+            />
+        );
+    }
 
     return (
         <div style={{
@@ -139,28 +118,16 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                         </div>
                     )}
 
-                    {type === 'items' && (
-                        <>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Contenedor (opcional)</label>
-                                <select value={parentId} onChange={(e) => setParentId(e.target.value)} style={{ width: '100%' }}>
-                                    <option value="">Sin contenedor asignado</option>
-                                    {containers.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Cantidad</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={quantity}
-                                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-                        </>
+                    {type === 'items' && isNew && (
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Contenedor (opcional)</label>
+                            <select value={parentId} onChange={(e) => setParentId(e.target.value)} style={{ width: '100%' }}>
+                                <option value="">Sin contenedor asignado</option>
+                                {containers.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
                     )}
 
                     <button onClick={handleSave} disabled={saving || !name} className="btn-primary" style={{ marginTop: '0.5rem' }}>
@@ -184,7 +151,7 @@ const ItemDetailPanel: React.FC<ItemDetailPanelProps> = ({ item, onClose, onEdit
 
     useEffect(() => {
         getItem(item.id).then(setFullItem).catch(console.error);
-    }, [item.id]);
+    }, [item.id, item]); // Added item as dependency to refresh when DatabaseView updates its selectedItem state
 
     const qrValue = `cec:${item.id}:${item.name}`;
 
@@ -265,6 +232,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [editingEntity, setEditingEntity] = useState<{ type: EntityType; entity: any } | null>(null);
+    const [showAddForm, setShowAddForm] = useState<'space' | 'container' | 'item' | null>(null);
 
     // Drill-down state
     const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
@@ -282,6 +250,22 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
             setLoading(false);
         }
     };
+
+    // Update selection states when inventory changes
+    useEffect(() => {
+        if (selectedSpace) {
+            const updated = inventory.find(s => s.id === selectedSpace.id);
+            if (updated) setSelectedSpace(updated);
+        }
+        if (selectedContainer) {
+            const updated = allContainers.find(c => c.id === selectedContainer.id);
+            if (updated) setSelectedContainer(updated);
+        }
+        if (selectedItem) {
+            const updated = allItems.find(i => i.id === selectedItem.id);
+            if (updated) setSelectedItem(updated);
+        }
+    }, [inventory]);
 
     useEffect(() => { loadData(); }, []);
 
@@ -419,7 +403,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h4 style={{ margin: 0 }}>📦 Contenedores ({space.containers.length})</h4>
                 <button
-                    onClick={() => setEditingEntity({ type: 'containers', entity: { space_id: space.id } })}
+                    onClick={() => setShowAddForm('container')}
                     style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                     <Plus size={16} /> Añadir
@@ -471,7 +455,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                 <h4 style={{ margin: 0 }}>🎁 Objetos ({container.items.length})</h4>
                 <button
-                    onClick={() => setEditingEntity({ type: 'items', entity: { container_id: container.id } })}
+                    onClick={() => setShowAddForm('item')}
                     style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                     <Plus size={16} /> Añadir
@@ -539,7 +523,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
 
                     {/* Add button */}
                     <button
-                        onClick={() => setEditingEntity({ type: activeTab, entity: {} })}
+                        onClick={() => setShowAddForm(activeTab === 'spaces' ? 'space' : activeTab === 'containers' ? 'container' : 'item')}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '6px',
                             padding: '10px 16px', marginBottom: '1rem',
@@ -596,6 +580,21 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                     onClose={() => setEditingEntity(null)}
                     onSave={() => { setEditingEntity(null); loadData(); }}
                 />
+            )}
+
+            {/* Unified Add Modal */}
+            {showAddForm && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1100,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+                }}>
+                    <div className="card" style={{ width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                            <button onClick={() => setShowAddForm(null)} style={{ background: 'transparent' }}><X size={24} /></button>
+                        </div>
+                        <AddItemForm onSuccess={() => { setShowAddForm(null); loadData(); }} initialMode={showAddForm} />
+                    </div>
+                </div>
             )}
         </div>
     );
