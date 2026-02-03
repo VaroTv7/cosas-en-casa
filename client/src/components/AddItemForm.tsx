@@ -57,7 +57,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess }) => {
             // 1. Create Space if needed
             let spaceId = selectedSpaceId;
             if (selectedSpaceId === 'new') {
-                const space = await createSpace(newSpaceName);
+                const space = await createSpace({ name: newSpaceName });
                 spaceId = space.id;
             }
 

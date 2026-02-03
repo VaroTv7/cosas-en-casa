@@ -7,6 +7,7 @@ const api = axios.create({
 export interface Space {
     id: number;
     name: string;
+    description?: string;
     parent_id?: number;
     containers: Container[];
 }
@@ -14,7 +15,8 @@ export interface Space {
 export interface Container {
     id: number;
     name: string;
-    space_id: number;
+    description?: string;
+    space_id?: number;
     photo_url?: string;
     items: Item[];
 }
@@ -35,13 +37,13 @@ export const getInventory = async () => {
     return response.data;
 };
 
-export const createSpace = async (name: string, parent_id?: number) => {
-    const response = await api.post('/spaces', { name, parent_id });
+export const createSpace = async (data: { name: string; description?: string; parent_id?: number | null }) => {
+    const response = await api.post('/spaces', data);
     return response.data;
 };
 
-export const updateSpace = async (id: number, name: string) => {
-    const response = await api.put(`/spaces/${id}`, { name });
+export const updateSpace = async (id: number, data: { name: string; description?: string; parent_id?: number | null }) => {
+    const response = await api.put(`/spaces/${id}`, data);
     return response.data;
 };
 

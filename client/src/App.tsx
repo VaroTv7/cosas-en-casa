@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { Package, PlusCircle, Scan, Map } from 'lucide-react';
+import { Package, PlusCircle, Scan, Map, Database, Settings } from 'lucide-react';
 import InventoryList from './components/InventoryList';
 import AddItemForm from './components/AddItemForm';
 import Scanner from './components/Scanner';
 import ItemDetail from './components/ItemDetail';
 import FloorPlan from './components/FloorPlan';
+import DatabaseView from './components/DatabaseView';
 import type { Space, Item } from './services/api';
 import { getInventory, getItem } from './services/api';
 
 function App() {
-  const [view, setView] = useState<'inventory' | 'add' | 'scan' | 'floorplan'>('inventory');
+  const [view, setView] = useState<'inventory' | 'add' | 'scan' | 'floorplan' | 'database' | 'settings'>('inventory');
   const [inventory, setInventory] = useState<Space[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -91,6 +92,20 @@ function App() {
           <Scan size={24} />
           <span>Escanear</span>
         </button>
+        <button
+          className={`nav-item ${view === 'database' ? 'active' : ''}`}
+          onClick={() => setView('database')}
+        >
+          <Database size={24} />
+          <span>BD</span>
+        </button>
+        <button
+          className={`nav-item ${view === 'settings' ? 'active' : ''}`}
+          onClick={() => setView('settings')}
+        >
+          <Settings size={24} />
+          <span>Ajustes</span>
+        </button>
       </nav>
 
       <main>
@@ -125,6 +140,17 @@ function App() {
               Compatible con formato v0.1 (item:ID) y v0.2 (cec:ID:Nombre)
             </p>
             <Scanner onScan={handleScan} />
+          </div>
+        )}
+
+        {view === 'database' && (
+          <DatabaseView />
+        )}
+
+        {view === 'settings' && (
+          <div className="card">
+            <h2>⚙️ Ajustes</h2>
+            <p style={{ opacity: 0.7 }}>Próximamente: tema, exportar/importar datos, etc.</p>
           </div>
         )}
 

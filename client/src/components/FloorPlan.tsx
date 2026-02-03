@@ -280,7 +280,8 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                 style={{
                     position: 'relative',
                     width: '100%',
-                    height: '400px',
+                    height: '70vh',
+                    minHeight: '500px',
                     background: floorPlan?.plan.background_color || '#1a1a2e',
                     borderRadius: '12px',
                     overflow: 'hidden',
@@ -328,7 +329,45 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                         </div>
 
                         {/* Containers inside this room */}
-                        {/* Note: Containers are positioned absolutely on the canvas, not inside rooms */}
+                        {floorPlan?.containers
+                            .filter(c => c.room_layout_id === room.id)
+                            .map(container => (
+                                <div
+                                    key={`container-${container.id}`}
+                                    onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'container', container.id); }}
+                                    onClick={(e) => { e.stopPropagation(); !editMode && handleContainerClick(container.container_id); }}
+                                    style={{
+                                        position: 'absolute',
+                                        left: container.x,
+                                        top: container.y + 30, // offset for room header
+                                        padding: '8px',
+                                        background: 'var(--glass-bg)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: '8px',
+                                        cursor: editMode ? 'move' : 'pointer',
+                                        userSelect: 'none',
+                                        minWidth: '60px',
+                                        textAlign: 'center',
+                                        zIndex: 10
+                                    }}
+                                >
+                                    <Box size={20} style={{ margin: '0 auto 4px' }} />
+                                    <div style={{ fontSize: '0.7em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {container.container_name}
+                                    </div>
+                                    {editMode && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
+                                            style={{
+                                                position: 'absolute', top: -5, right: -5,
+                                                padding: '2px', background: '#ef4444', borderRadius: '50%'
+                                            }}
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
 
                         {/* Resize handle */}
                         {editMode && (
@@ -349,43 +388,45 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                     </div>
                 ))}
 
-                {/* Containers */}
-                {floorPlan?.containers.map(container => (
-                    <div
-                        key={`container-${container.id}`}
-                        onMouseDown={(e) => handleMouseDown(e, 'container', container.id)}
-                        onClick={() => !editMode && handleContainerClick(container.container_id)}
-                        style={{
-                            position: 'absolute',
-                            left: container.x,
-                            top: container.y,
-                            padding: '8px',
-                            background: 'var(--glass-bg)',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: '8px',
-                            cursor: editMode ? 'move' : 'pointer',
-                            userSelect: 'none',
-                            minWidth: '60px',
-                            textAlign: 'center'
-                        }}
-                    >
-                        <Box size={20} style={{ margin: '0 auto 4px' }} />
-                        <div style={{ fontSize: '0.7em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {container.container_name}
+                {/* Containers without room (floating) */}
+                {floorPlan?.containers
+                    .filter(c => !c.room_layout_id)
+                    .map(container => (
+                        <div
+                            key={`container-${container.id}`}
+                            onMouseDown={(e) => handleMouseDown(e, 'container', container.id)}
+                            onClick={() => !editMode && handleContainerClick(container.container_id)}
+                            style={{
+                                position: 'absolute',
+                                left: container.x,
+                                top: container.y,
+                                padding: '8px',
+                                background: 'var(--glass-bg)',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '8px',
+                                cursor: editMode ? 'move' : 'pointer',
+                                userSelect: 'none',
+                                minWidth: '60px',
+                                textAlign: 'center'
+                            }}
+                        >
+                            <Box size={20} style={{ margin: '0 auto 4px' }} />
+                            <div style={{ fontSize: '0.7em', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {container.container_name}
+                            </div>
+                            {editMode && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
+                                    style={{
+                                        position: 'absolute', top: -5, right: -5,
+                                        padding: '2px', background: '#ef4444', borderRadius: '50%'
+                                    }}
+                                >
+                                    <X size={10} />
+                                </button>
+                            )}
                         </div>
-                        {editMode && (
-                            <button
-                                onClick={(e) => { e.stopPropagation(); handleDeleteContainer(container.id); }}
-                                style={{
-                                    position: 'absolute', top: -5, right: -5,
-                                    padding: '2px', background: '#ef4444', borderRadius: '50%'
-                                }}
-                            >
-                                <X size={10} />
-                            </button>
-                        )}
-                    </div>
-                ))}
+                    ))}
 
                 {/* Empty state */}
                 {floorPlan?.rooms.length === 0 && (

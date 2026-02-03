@@ -15,6 +15,7 @@ export const initDb = () => {
     CREATE TABLE IF NOT EXISTS spaces (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      description TEXT,
       parent_id INTEGER,
       photo_url TEXT,
       FOREIGN KEY(parent_id) REFERENCES spaces(id)
@@ -23,6 +24,7 @@ export const initDb = () => {
     CREATE TABLE IF NOT EXISTS containers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      description TEXT,
       space_id INTEGER,
       photo_url TEXT,
       qr_code TEXT,
@@ -85,6 +87,16 @@ export const initDb = () => {
       FOREIGN KEY(room_layout_id) REFERENCES room_layouts(id) ON DELETE SET NULL
     );
   `);
+
+  // v0.3: Migrations for existing databases
+  try {
+    db.exec(`ALTER TABLE spaces ADD COLUMN description TEXT`);
+  } catch (e) { /* Column already exists */ }
+
+  try {
+    db.exec(`ALTER TABLE containers ADD COLUMN description TEXT`);
+  } catch (e) { /* Column already exists */ }
+
   console.log('Database initialized');
 };
 

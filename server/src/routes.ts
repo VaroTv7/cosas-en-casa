@@ -52,30 +52,31 @@ export default async function routes(fastify: FastifyInstance) {
     });
 
     // POST Space
-    fastify.post('/api/spaces', async (req: FastifyRequest<{ Body: { name: string, parent_id?: number } }>, reply) => {
-        const { name, parent_id } = req.body;
+    fastify.post('/api/spaces', async (req: FastifyRequest<{ Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
+        const { name, description, parent_id } = req.body;
         if (!name) return reply.status(400).send({ error: 'Nombre requerido' });
-        const result = db.prepare('INSERT INTO spaces (name, parent_id) VALUES (?, ?)').run(name, parent_id || null);
+        const result = db.prepare('INSERT INTO spaces (name, description, parent_id) VALUES (?, ?, ?)').run(name, description || null, parent_id || null);
         return { id: result.lastInsertRowid };
     });
 
     // POST Container (Multipart)
     fastify.post('/api/containers', async (req, reply) => {
         const parts = req.parts();
-        let name, space_id, photo_url;
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined;
 
         for await (const part of parts) {
             if (part.type === 'file') {
                 photo_url = await saveImage(part);
             } else {
                 if (part.fieldname === 'name') name = (part.value as string);
+                if (part.fieldname === 'description') description = (part.value as string);
                 if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
             }
         }
 
-        if (!name || !space_id) return reply.status(400).send({ error: 'Faltan campos (nombre o espacio)' });
+        if (!name) return reply.status(400).send({ error: 'Falta el nombre' });
 
-        const result = db.prepare('INSERT INTO containers (name, space_id, photo_url) VALUES (?, ?, ?)').run(name, space_id, photo_url);
+        const result = db.prepare('INSERT INTO containers (name, description, space_id, photo_url) VALUES (?, ?, ?, ?)').run(name, description || null, space_id || null, photo_url);
         return { id: result.lastInsertRowid, photo_url };
     });
 
@@ -156,13 +157,13 @@ export default async function routes(fastify: FastifyInstance) {
     });
 
     // PUT Routes (Update)
-    fastify.put('/api/spaces/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { name: string, parent_id?: number } }>, reply) => {
+    fastify.put('/api/spaces/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
         const { id } = req.params;
-        const { name, parent_id } = req.body;
+        const { name, description, parent_id } = req.body;
 
         if (!name) return reply.status(400).send({ error: 'Nombre requerido' });
 
-        const result = db.prepare('UPDATE spaces SET name = ?, parent_id = ? WHERE id = ?').run(name, parent_id || null, id);
+        const result = db.prepare('UPDATE spaces SET name = ?, description = ?, parent_id = ? WHERE id = ?').run(name, description || null, parent_id || null, id);
 
         if (result.changes === 0) return reply.status(404).send({ error: 'Espacio no encontrado' });
         return { success: true };
@@ -171,7 +172,7 @@ export default async function routes(fastify: FastifyInstance) {
     fastify.put('/api/containers/:id', async (req, reply) => {
         const { id } = (req.params as { id: string });
         const parts = req.parts();
-        let name, space_id, photo_url;
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined;
 
         // Get current container to preserve photo if not updated
         const currentContainer = db.prepare('SELECT photo_url FROM containers WHERE id = ?').get(id) as { photo_url: string };
@@ -183,6 +184,7 @@ export default async function routes(fastify: FastifyInstance) {
                 photo_url = await saveImage(part);
             } else {
                 if (part.fieldname === 'name') name = (part.value as string);
+                if (part.fieldname === 'description') description = (part.value as string);
                 if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
             }
         }
@@ -191,6 +193,7 @@ export default async function routes(fastify: FastifyInstance) {
         const values: any[] = [];
 
         if (name) { updates.push('name = ?'); values.push(name); }
+        if (description !== undefined) { updates.push('description = ?'); values.push(description || null); }
         if (space_id) { updates.push('space_id = ?'); values.push(space_id); }
         if (photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
 

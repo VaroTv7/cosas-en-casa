@@ -45,7 +45,7 @@ const InventoryList: React.FC<Props> = ({ inventory, onSelectItem, onRefresh }) 
     const saveSpace = async (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         try {
-            await updateSpace(id, editName);
+            await updateSpace(id, { name: editName });
             setEditingSpaceId(null);
             onRefresh();
         } catch (err) {
