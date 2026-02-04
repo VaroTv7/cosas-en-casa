@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Image as ImageIcon, Briefcase, FileText, ArrowRight } from 'lucide-react';
+import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Briefcase, FileText, ArrowRight } from 'lucide-react';
 import type { Space, Container, Item } from '../services/api';
-import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, getItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems } from '../services/api';
-import { QRCodeSVG } from 'qrcode.react';
+import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems } from '../services/api';
+
 import ItemMetadataEditor from './ItemMetadataEditor';
 import ItemDetail from './ItemDetail';
 import AddItemForm from './AddItemForm';
