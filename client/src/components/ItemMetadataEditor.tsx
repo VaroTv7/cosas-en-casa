@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield, FileText, Settings, UserMinus, AlertCircle, Image, Trash2, CheckCircle, Camera, Plus } from 'lucide-react';
+import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield, FileText, Settings, UserMinus, AlertCircle, Image, Trash2, CheckCircle, Camera } from 'lucide-react';
 import CategoryManager from './CategoryManager';
 import type { Item, Category, Person } from '../services/api';
 import { getCategories, updateItem, getPeople, getItemPhotos, addItemPhoto, deleteItemPhoto, setItemPhotoPrimary } from '../services/api';
