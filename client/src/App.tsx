@@ -10,6 +10,7 @@ import DatabaseView from './components/DatabaseView';
 import DashboardView from './components/DashboardView';
 import CategoryManager from './components/CategoryManager';
 import PeopleManager from './components/PeopleManager';
+import BackupManager from './components/BackupManager';
 import type { Space, Item } from './services/api';
 import { getInventory } from './services/api';
 
@@ -156,6 +157,11 @@ function App() {
               </button>
               <p style={{ opacity: 0.7, fontSize: '0.9em' }}>Configura los iconos y colores de tus categorías de objetos.</p>
             </div>
+
+            <div style={{ marginTop: '2rem' }}>
+              <BackupManager />
+            </div>
+
             <p style={{ opacity: 0.5, marginTop: '2rem', fontSize: '0.8em' }}>Cosas en Casa v0.6 - Global Search & Smart Inventory</p>
           </div>
         )}
