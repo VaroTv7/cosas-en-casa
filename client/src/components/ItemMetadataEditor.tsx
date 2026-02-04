@@ -23,6 +23,7 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
     const [activeTab, setActiveTab] = useState<'general' | 'purchase' | 'category' | 'management' | 'notes'>('general');
     const [saving, setSaving] = useState(false);
     const [showCategoryManager, setShowCategoryManager] = useState(false);
+    const [invoicePhoto, setInvoicePhoto] = useState<File | null>(null);
 
     const [formData, setFormData] = useState({
         // General
@@ -88,6 +89,8 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
                 // The backend parser (addField) handles '' by setting it to NULL
                 fd.append(key, value === null || value === undefined ? '' : String(value));
             });
+            if (invoicePhoto) fd.append('invoice_photo', invoicePhoto);
+
             await updateItem(item.id, fd);
             onSaved();
             onClose();
@@ -175,6 +178,34 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
                 <label style={labelStyle}>Lugar de compra</label>
                 <input type="text" value={formData.purchase_location} onChange={e => handleChange('purchase_location', e.target.value)} style={inputStyle} placeholder="Amazon, MediaMarkt, etc." />
             </div>
+
+            <div style={fieldGroup}>
+                <label style={labelStyle}><FileText size={14} style={{ marginRight: 4 }} />Factura / Ticket</label>
+                {item.invoice_photo_url && !invoicePhoto && (
+                    <div style={{ marginBottom: '10px', padding: '10px', background: 'rgba(0,0,0,0.2)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <a href={item.invoice_photo_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <FileText size={16} /> Ver factura actual
+                        </a>
+                    </div>
+                )}
+
+                <div style={{ border: '1px dashed var(--glass-border)', padding: '1rem', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', position: 'relative' }}>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => setInvoicePhoto(e.target.files ? e.target.files[0] : null)}
+                        style={{ opacity: 0, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+                    />
+                    {invoicePhoto ? (
+                        <span style={{ color: 'var(--accent)' }}>✅ Nueva factura seleccionada</span>
+                    ) : (
+                        <span style={{ fontSize: '0.9em', opacity: 0.7 }}>
+                            {item.invoice_photo_url ? 'Toc para cambiar factura' : 'Subir foto de factura'}
+                        </span>
+                    )}
+                </div>
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div style={fieldGroup}>
                     <label style={labelStyle}><Shield size={14} style={{ marginRight: 4 }} />Garantía (meses)</label>

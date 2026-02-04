@@ -27,6 +27,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
     const [selectedContainerId, setSelectedContainerId] = useState<number | string>('');
     const [categoryId, setCategoryId] = useState<number | string>('');
     const [photo, setPhoto] = useState<File | null>(null);
+    const [invoicePhoto, setInvoicePhoto] = useState<File | null>(null);
 
     // Advanced fields
     const [brand, setBrand] = useState('');
@@ -63,7 +64,9 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
         setSelectedSpaceId('');
         setSelectedContainerId('');
         setCategoryId('');
+        setCategoryId('');
         setPhoto(null);
+        setInvoicePhoto(null);
         setBrand('');
         setModel('');
         setSerialNumber('');
@@ -121,7 +124,9 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
             formData.append('quantity', String(quantity));
             if (categoryId) formData.append('category_id', String(categoryId));
             if (description) formData.append('description', description);
+            if (description) formData.append('description', description);
             if (photo) formData.append('photo', photo);
+            if (invoicePhoto) formData.append('invoice_photo', invoicePhoto);
 
             // Advanced fields
             if (brand) formData.append('brand', brand);
@@ -317,6 +322,10 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
 
                     {showAdvanced && (
                         <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div className="input-group">
+                                <label>Factura / Ticket (Foto)</label>
+                                <PhotoInput photo={invoicePhoto} onPhotoChange={setInvoicePhoto} label="Añadir foto de factura" />
+                            </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                 <div className="input-group">
                                     <label>Marca</label>
@@ -372,7 +381,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
     );
 };
 
-const PhotoInput: React.FC<{ photo: File | null; onPhotoChange: (f: File | null) => void }> = ({ photo, onPhotoChange }) => (
+const PhotoInput: React.FC<{ photo: File | null; onPhotoChange: (f: File | null) => void; label?: string }> = ({ photo, onPhotoChange, label = "Toca para tomar foto" }) => (
     <div style={{ border: '1px dashed var(--glass-border)', padding: '1rem', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', position: 'relative' }}>
         <input
             type="file"
@@ -386,7 +395,7 @@ const PhotoInput: React.FC<{ photo: File | null; onPhotoChange: (f: File | null)
         ) : (
             <div style={{ color: 'var(--secondary)' }}>
                 <Camera size={32} style={{ display: 'block', margin: '0 auto 10px' }} />
-                <span>Toca para tomar foto</span>
+                <span>{label}</span>
             </div>
         )}
     </div>

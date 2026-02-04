@@ -174,7 +174,9 @@ export const initDb = () => {
     // v0.5: Loans & Stock Alerts
     `ALTER TABLE items ADD COLUMN loaned_to TEXT`,
     `ALTER TABLE items ADD COLUMN loaned_at TEXT`,
-    `ALTER TABLE items ADD COLUMN min_quantity INTEGER DEFAULT 0`
+    `ALTER TABLE items ADD COLUMN min_quantity INTEGER DEFAULT 0`,
+    // v0.7: Invoice Photo
+    `ALTER TABLE items ADD COLUMN invoice_photo_url TEXT`
   ];
 
   for (const migration of itemMigrations) {

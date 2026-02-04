@@ -85,6 +85,7 @@ export default async function routes(fastify: FastifyInstance) {
         const parts = req.parts();
         const fields: Record<string, any> = {};
         let photo_url: string | null = null;
+        let invoice_photo_url: string | null = null;
 
         for await (const part of parts) {
             if (part.type === 'file') {
@@ -102,11 +103,11 @@ export default async function routes(fastify: FastifyInstance) {
             INSERT INTO items (
                 name, container_id, quantity, description, tags, expiration_date, photo_url,
                 category_id, serial_number, brand, model, purchase_date, purchase_price, purchase_location,
-                warranty_months, warranty_end, condition, notes,
+                warranty_months, warranty_end, condition, notes, invoice_photo_url,
                 book_author, book_publisher, book_year, book_pages, book_isbn, book_genre,
                 game_platform, game_developer, game_publisher, game_year, game_genre,
                 tech_specs, tech_manual_url
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         const result = stmt.run(
             name, container_id,
@@ -121,6 +122,7 @@ export default async function routes(fastify: FastifyInstance) {
             fields.warranty_end || null,
             fields.condition || 'buen_estado',
             fields.notes || null,
+            invoice_photo_url,
             fields.book_author || null, fields.book_publisher || null,
             fields.book_year ? parseInt(fields.book_year) : null,
             fields.book_pages ? parseInt(fields.book_pages) : null,
@@ -305,11 +307,13 @@ export default async function routes(fastify: FastifyInstance) {
         const parts = req.parts();
         const fields: Record<string, any> = {};
         let photo_url: string | null | undefined;
+        let invoice_photo_url: string | null | undefined;
 
         // Get current item to preserve photo if not updated
-        const currentItem = db.prepare('SELECT photo_url FROM items WHERE id = ?').get(id) as { photo_url: string };
+        const currentItem = db.prepare('SELECT photo_url, invoice_photo_url FROM items WHERE id = ?').get(id) as { photo_url: string, invoice_photo_url: string };
         if (!currentItem) return reply.status(404).send({ error: 'Ítem no encontrado' });
         photo_url = currentItem.photo_url;
+        invoice_photo_url = currentItem.invoice_photo_url;
 
         for await (const part of parts) {
             if (part.type === 'file') {
@@ -338,6 +342,7 @@ export default async function routes(fastify: FastifyInstance) {
         addField('tags', fields.tags);
         addField('expiration_date', fields.expiration_date);
         if (photo_url !== currentItem.photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
+        if (invoice_photo_url !== currentItem.invoice_photo_url) { updates.push('invoice_photo_url = ?'); values.push(invoice_photo_url); }
 
         // v0.4 Extended fields
         addField('category_id', fields.category_id, parseInt);

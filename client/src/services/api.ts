@@ -40,6 +40,7 @@ export interface Item {
     purchase_location?: string;
     warranty_months?: number;
     warranty_end?: string;
+    invoice_photo_url?: string;
     condition?: string;
     notes?: string;
     // Book fields
