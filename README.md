@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/Version-0.6-purple.svg)]()
+[![Version](https://img.shields.io/badge/Version-0.7-purple.svg)]()
 
 **Cosas en Casa** es una aplicación web de inventario doméstico profesional. Organiza, cataloga y encuentra tus pertenencias con metadatos extendidos, gestión de categorías, préstamos a personas y un plano interactivo.
 
@@ -15,6 +15,11 @@
 - **Omnibox Inteligente**: Busca cualquier objeto por nombre, marca, modelo, etiquetas o descripción.
 - **Contexto de Ubicación**: Los resultados muestran dónde está cada objeto (Contenedor > Espacio).
 - **Búsqueda En Vivo**: Los resultados aparecen mientras escribes, con debounce para rendimiento óptimo.
+
+### 💾 Backup y Restauración (v0.7)
+- **Portabilidad Total**: Exporta todo tu inventario, fotos, configuración de planos y personas a un único archivo JSON.
+- **Seguridad**: Crea copias de seguridad locales para evitar pérdida de datos.
+- **Importación Inteligente**: Restaura tu base de datos completa con un solo clic desde el menú de Ajustes.
 
 ### 👥 Gestión de Personas y Préstamos (v0.5)
 - **Agenda de Contactos**: Registra familiares y amigos para gestionar préstamos de forma ordenada.
@@ -140,6 +145,11 @@ El proyecto sigue una arquitectura de **Desacoplamiento Total** entre cliente y 
 
 ## 📰 Changelog
 
+### v0.7 (Backup & Restore)
+- **Copia de Seguridad**: Implementación de sistema de exportación e importación de datos en formato JSON.
+- **Gestión desde Ajustes**: Nueva sección en el menú de Ajustes para gestionar backups de forma segura.
+- **Integridad de Datos**: Sistema de transacciones para asegurar restauraciones sin errores.
+
 ### v0.6 (Global Search)
 - **Omnibox**: Barra de búsqueda global en el Dashboard para encontrar cualquier objeto al instante.
 - **Resultados Contextuales**: Las búsquedas muestran la ubicación de cada objeto (Contenedor > Espacio).
@@ -163,6 +173,6 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 ---
 
 <p align="center">
-  <strong>🏠 Cosas en Casa v0.5 by ElVartoDev</strong><br>
+  <strong>🏠 Cosas en Casa v0.7 by ElVartoDev</strong><br>
   <em>Organización inteligente y social para tu hogar.</em>
 </p>
