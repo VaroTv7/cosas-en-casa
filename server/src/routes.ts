@@ -671,4 +671,76 @@ export default async function routes(fastify: FastifyInstance) {
         return { success: true };
     });
 
+    // ==================== v0.7 Backup API ====================
+
+    // Export all data
+    fastify.get('/api/backup/export', async () => {
+        const tables = [
+            'spaces', 'containers', 'items', 'item_photos',
+            'floor_plan', 'room_layouts', 'container_positions',
+            'categories', 'people'
+        ];
+
+        const backup: Record<string, any[]> = {};
+
+        for (const table of tables) {
+            backup[table] = db.prepare(`SELECT * FROM ${table}`).all();
+        }
+
+        return backup;
+    });
+
+    // Import all data
+    fastify.post('/api/backup/import', async (req: FastifyRequest<{ Body: Record<string, any[]> }>, reply) => {
+        const backup = req.body;
+        if (!backup || typeof backup !== 'object') {
+            return reply.status(400).send({ error: 'Backup inválido' });
+        }
+
+        const tables = [
+            'item_photos', 'items', 'container_positions', 'containers',
+            'room_layouts', 'spaces', 'floor_plan', 'categories', 'people'
+        ];
+
+        const importTransaction = db.transaction((data: Record<string, any[]>) => {
+            // 1. Clear tables (in reverse order of foreign keys)
+            for (const table of tables) {
+                db.prepare(`DELETE FROM ${table}`).run();
+            }
+
+            // 2. Insert data (in correct order of foreign keys)
+            const insertTable = (table: string, items: any[]) => {
+                if (!items || items.length === 0) return;
+
+                const columns = Object.keys(items[0]);
+                const placeholders = columns.map(() => '?').join(', ');
+                const stmt = db.prepare(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`);
+
+                for (const item of items) {
+                    const values = columns.map(col => item[col]);
+                    stmt.run(...values);
+                }
+            };
+
+            // Order matters for FK
+            const insertOrder = [
+                'categories', 'people', 'spaces', 'room_layouts',
+                'containers', 'container_positions', 'items',
+                'item_photos', 'floor_plan'
+            ];
+
+            for (const table of insertOrder) {
+                insertTable(table, data[table]);
+            }
+        });
+
+        try {
+            importTransaction(backup);
+            return { success: true };
+        } catch (err: any) {
+            console.error('Import error:', err);
+            return reply.status(500).send({ error: 'Error al importar: ' + err.message });
+        }
+    });
+
 }

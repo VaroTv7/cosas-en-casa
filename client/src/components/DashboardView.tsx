@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { AlertCircle, UserMinus, CheckCircle, Package, Search, X, MapPin, Box, Loader2 } from 'lucide-react';
+import { AlertCircle, UserMinus, CheckCircle, Package, Search, X, MapPin, Box, Loader2, Settings } from 'lucide-react';
 import type { Space, Item, SearchResults, SearchResultItem } from '../services/api';
 import { searchGlobal } from '../services/api';
+import BackupManager from './BackupManager';
 
 interface Props {
     inventory: Space[];
@@ -347,6 +348,14 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
                     ))}
                 </div>
             )}
+
+            {/* Backup Management Section */}
+            <div style={{ marginTop: '40px' }}>
+                <div style={sectionTitleStyle}>
+                    <Settings color="#64748b" /> Sistema
+                </div>
+                <BackupManager />
+            </div>
         </div>
     );
 };

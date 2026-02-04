@@ -358,4 +358,23 @@ export const searchGlobal = async (query: string): Promise<SearchResults> => {
     return response.data;
 };
 
+// ==================== v0.7 Backup API ====================
+
+export const exportData = async () => {
+    const response = await api.get('/backup/export');
+    const data = response.data;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cosas-en-casa-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+};
+
+export const importData = async (data: any) => {
+    const response = await api.post('/backup/import', data);
+    return response.data;
+};
+
 export default api;
