@@ -9,6 +9,7 @@ const db = new Database(DB_PATH);
 
 // Enable WAL mode for better concurrency
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 export const initDb = () => {
   db.exec(`

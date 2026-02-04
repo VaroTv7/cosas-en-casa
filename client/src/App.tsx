@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
 import { Package, Plus, Scan, Map, Database, Settings, LayoutDashboard } from 'lucide-react';
 import InventoryList from './components/InventoryList';
@@ -15,7 +16,8 @@ import type { Space, Item } from './services/api';
 import { getInventory } from './services/api';
 
 function App() {
-  const [view, setView] = useState<'inventory' | 'add' | 'scan' | 'floorplan' | 'database' | 'settings' | 'dashboard'>('dashboard');
+  const location = useLocation();
+  const navigate = useNavigate();
   const [inventory, setInventory] = useState<Space[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -24,7 +26,7 @@ function App() {
 
   useEffect(() => {
     loadInventory();
-  }, [view]); // Reload when view changes (e.g. after adding)
+  }, [location.pathname]); // Reload when path changes
 
   const loadInventory = async () => {
     setLoading(true);
@@ -38,7 +40,6 @@ function App() {
     }
   };
 
-  // QR scan handler now handled inside ScannerView component
   const handleItemFromScan = (item: Item) => {
     setSelectedItem(item);
   };
@@ -46,125 +47,106 @@ function App() {
   return (
     <>
       <nav className="nav-bar">
-        <button
-          className={`nav-item ${view === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setView('dashboard')}
-        >
+        <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <LayoutDashboard size={24} />
           <span>Panel</span>
-        </button>
-        <button
-          className={`nav-item ${view === 'inventory' ? 'active' : ''}`}
-          onClick={() => setView('inventory')}
-        >
+        </NavLink>
+        <NavLink to="/inventory" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Package size={24} />
           <span>Inventario</span>
-        </button>
-        <button
-          className={`nav-item ${view === 'floorplan' ? 'active' : ''}`}
-          onClick={() => setView('floorplan')}
-        >
+        </NavLink>
+        <NavLink to="/floorplan" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Map size={24} />
           <span>Plano</span>
-        </button>
-        <button
-          className={`nav-item ${view === 'add' ? 'active' : ''}`}
-          onClick={() => setView('add')}
-        >
+        </NavLink>
+        <NavLink to="/add" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Plus size={24} />
           <span>Añadir</span>
-        </button>
-        <button
-          className={`nav-item ${view === 'scan' ? 'active' : ''}`}
-          onClick={() => setView('scan')}
-        >
+        </NavLink>
+        <NavLink to="/scan" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Scan size={24} />
           <span>Escanear</span>
-        </button>
-        <button
-          className={`nav-item ${view === 'database' ? 'active' : ''}`}
-          onClick={() => setView('database')}
-        >
+        </NavLink>
+        <NavLink to="/database" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Database size={24} />
           <span>BD</span>
-        </button>
-        <button
-          className={`nav-item ${view === 'settings' ? 'active' : ''}`}
-          onClick={() => setView('settings')}
-        >
+        </NavLink>
+        <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
           <Settings size={24} />
           <span>Ajustes</span>
-        </button>
+        </NavLink>
       </nav>
 
       <main>
-        {view === 'dashboard' && (
-          <DashboardView
-            inventory={inventory}
-            onSelectItem={(item) => setSelectedItem(item)}
-          />
-        )}
+        <Routes>
+          <Route path="/" element={
+            <DashboardView
+              inventory={inventory}
+              onSelectItem={(item) => setSelectedItem(item)}
+            />
+          } />
 
-        {view === 'inventory' && (
-          <div>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h1>Cosas en Casa</h1>
-            </header>
+          <Route path="/inventory" element={
+            <div>
+              <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h1>Cosas en Casa</h1>
+              </header>
 
-            {loading ? <p>Cargando inventario...</p> : (
-              <InventoryList
-                inventory={inventory}
-                onSelectItem={(item) => setSelectedItem(item)}
-                onRefresh={loadInventory}
-              />
-            )}
-          </div>
-        )}
-
-        {view === 'floorplan' && (
-          <FloorPlan onSelectItem={(item) => setSelectedItem(item)} />
-        )}
-
-        {view === 'add' && (
-          <AddItemForm onSuccess={() => setView('inventory')} />
-        )}
-
-        {view === 'scan' && (
-          <ScannerView onSelectItem={handleItemFromScan} />
-        )}
-
-        {view === 'database' && (
-          <DatabaseView />
-        )}
-
-        {view === 'settings' && (
-          <div className="card">
-            <h2>⚙️ Ajustes</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-              <button
-                onClick={() => setShowPeopleManager(true)}
-                style={{ background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-              >
-                <LayoutDashboard size={20} />
-                Gestionar Personas
-              </button>
-              <button
-                onClick={() => setShowCategoryManager(true)}
-                style={{ background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-              >
-                <Database size={20} />
-                Gestionar Categorías
-              </button>
-              <p style={{ opacity: 0.7, fontSize: '0.9em' }}>Configura los iconos y colores de tus categorías de objetos.</p>
+              {loading ? <p>Cargando inventario...</p> : (
+                <InventoryList
+                  inventory={inventory}
+                  onSelectItem={(item) => setSelectedItem(item)}
+                  onRefresh={loadInventory}
+                />
+              )}
             </div>
+          } />
 
-            <div style={{ marginTop: '2rem' }}>
-              <BackupManager />
+          <Route path="/floorplan" element={
+            <FloorPlan onSelectItem={(item) => setSelectedItem(item)} />
+          } />
+
+          <Route path="/add" element={
+            <AddItemForm onSuccess={() => navigate('/inventory')} />
+          } />
+
+          <Route path="/scan" element={
+            <ScannerView onSelectItem={handleItemFromScan} />
+          } />
+
+          <Route path="/database" element={
+            <DatabaseView />
+          } />
+
+          <Route path="/settings" element={
+            <div className="card">
+              <h2>⚙️ Ajustes</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+                <button
+                  onClick={() => setShowPeopleManager(true)}
+                  style={{ background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                >
+                  <LayoutDashboard size={20} />
+                  Gestionar Personas
+                </button>
+                <button
+                  onClick={() => setShowCategoryManager(true)}
+                  style={{ background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                >
+                  <Database size={20} />
+                  Gestionar Categorías
+                </button>
+                <p style={{ opacity: 0.7, fontSize: '0.9em' }}>Configura los iconos y colores de tus categorías de objetos.</p>
+              </div>
+
+              <div style={{ marginTop: '2rem' }}>
+                <BackupManager />
+              </div>
+
+              <p style={{ opacity: 0.5, marginTop: '2rem', fontSize: '0.8em' }}>Cosas en Casa v0.8 - Real Navigation & Security</p>
             </div>
-
-            <p style={{ opacity: 0.5, marginTop: '2rem', fontSize: '0.8em' }}>Cosas en Casa v0.6 - Global Search & Smart Inventory</p>
-          </div>
-        )}
+          } />
+        </Routes>
 
         {showCategoryManager && (
           <CategoryManager onClose={() => setShowCategoryManager(false)} />

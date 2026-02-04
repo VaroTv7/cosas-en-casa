@@ -52,9 +52,20 @@ export default async function routes(fastify: FastifyInstance) {
     });
 
     // POST Space
-    fastify.post('/api/spaces', async (req: FastifyRequest<{ Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
+    fastify.post('/api/spaces', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { type: 'string', minLength: 1 },
+                    description: { type: 'string' },
+                    parent_id: { type: 'number' }
+                }
+            }
+        }
+    }, async (req: FastifyRequest<{ Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
         const { name, description, parent_id } = req.body;
-        if (!name) return reply.status(400).send({ error: 'Nombre requerido' });
         const result = db.prepare('INSERT INTO spaces (name, description, parent_id) VALUES (?, ?, ?)').run(name, description || null, parent_id || null);
         return { id: result.lastInsertRowid };
     });
@@ -213,12 +224,22 @@ export default async function routes(fastify: FastifyInstance) {
         return { success: true };
     });
 
-    // PUT Routes (Update)
-    fastify.put('/api/spaces/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
+    // PUT Spaces
+    fastify.put('/api/spaces/:id', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { type: 'string', minLength: 1 },
+                    description: { type: 'string' },
+                    parent_id: { type: 'number', nullable: true }
+                }
+            }
+        }
+    }, async (req: FastifyRequest<{ Params: { id: string }, Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
         const { id } = req.params;
         const { name, description, parent_id } = req.body;
-
-        if (!name) return reply.status(400).send({ error: 'Nombre requerido' });
 
         const result = db.prepare('UPDATE spaces SET name = ?, description = ?, parent_id = ? WHERE id = ?').run(name, description || null, parent_id || null, id);
 
@@ -267,7 +288,19 @@ export default async function routes(fastify: FastifyInstance) {
         return db.prepare('SELECT * FROM people ORDER BY name ASC').all();
     });
 
-    fastify.post('/api/people', async (request, reply) => {
+    fastify.post('/api/people', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { type: 'string', minLength: 1 },
+                    role: { type: 'string' },
+                    contact_info: { type: 'string' }
+                }
+            }
+        }
+    }, async (request, reply) => {
         const { name, role, contact_info } = request.body as { name: string, role?: string, contact_info?: string };
         try {
             const result = db.prepare('INSERT INTO people (name, role, contact_info) VALUES (?, ?, ?)').run(name, role || 'Amigo', contact_info);
@@ -628,9 +661,20 @@ export default async function routes(fastify: FastifyInstance) {
     });
 
     // POST create category
-    fastify.post('/api/categories', async (req: FastifyRequest<{ Body: { name: string, icon?: string, color?: string } }>, reply) => {
+    fastify.post('/api/categories', {
+        schema: {
+            body: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: { type: 'string', minLength: 1 },
+                    icon: { type: 'string' },
+                    color: { type: 'string' }
+                }
+            }
+        }
+    }, async (req: FastifyRequest<{ Body: { name: string, icon?: string, color?: string } }>, reply) => {
         const { name, icon, color } = req.body;
-        if (!name) return reply.status(400).send({ error: 'Nombre requerido' });
 
         try {
             const result = db.prepare('INSERT INTO categories (name, icon, color) VALUES (?, ?, ?)').run(name, icon || 'package', color || '#6b7280');
