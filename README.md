@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/Version-0.7-purple.svg)]()
+[![Version](https://img.shields.io/badge/Version-0.7.1-purple.svg)]()
 
 **Cosas en Casa** es una aplicación web de inventario doméstico profesional. Organiza, cataloga y encuentra tus pertenencias con metadatos extendidos, gestión de categorías, préstamos a personas y un plano interactivo.
 
@@ -20,6 +20,11 @@
 - **Portabilidad Total**: Exporta todo tu inventario, fotos, configuración de planos y personas a un único archivo JSON.
 - **Seguridad**: Crea copias de seguridad locales para evitar pérdida de datos.
 - **Importación Inteligente**: Restaura tu base de datos completa con un solo clic desde el menú de Ajustes.
+
+### 🛡️ Gestor de Garantías y Facturas (v0.7.1)
+- **Facturas Digitales**: Sube fotos de tus tickets de compra directamente a la ficha del objeto.
+- **Acceso Rápido**: Visualiza la factura con un clic desde la pestaña de Compra.
+- **Backups incluidos**: Las fotos de las facturas se incluyen en tu servidor (y futuras copias de seguridad).
 
 ### 👥 Gestión de Personas y Préstamos (v0.5)
 - **Agenda de Contactos**: Registra familiares y amigos para gestionar préstamos de forma ordenada.
@@ -144,6 +149,10 @@ El proyecto sigue una arquitectura de **Desacoplamiento Total** entre cliente y 
 - [ ] PWA (Progressive Web App) para instalación en móvil.
 
 ## 📰 Changelog
+
+### v0.7.1 (Warranty Manager)
+- **Facturas y Tickets**: Nuevo campo para subir y visualizar fotos de facturas en los objetos.
+- **Mejoras en UI**: Pestaña de "Compra" renovada en el editor de metadatos.
 
 ### v0.7 (Backup & Restore)
 - **Copia de Seguridad**: Implementación de sistema de exportación e importación de datos en formato JSON.
