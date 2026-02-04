@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield, FileText, Settings, UserMinus, AlertCircle } from 'lucide-react';
+import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield, FileText, Settings, UserMinus, AlertCircle, Image, Trash2, CheckCircle, Camera, Plus } from 'lucide-react';
 import CategoryManager from './CategoryManager';
 import type { Item, Category, Person } from '../services/api';
-import { getCategories, updateItem, getPeople } from '../services/api';
+import { getCategories, updateItem, getPeople, getItemPhotos, addItemPhoto, deleteItemPhoto, setItemPhotoPrimary } from '../services/api';
 
 interface Props {
     item: Item;
@@ -20,10 +20,12 @@ const CONDITIONS = [
 const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
     const [categories, setCategories] = useState<Category[]>([]);
     const [people, setPeople] = useState<Person[]>([]);
-    const [activeTab, setActiveTab] = useState<'general' | 'purchase' | 'category' | 'management' | 'notes'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'purchase' | 'category' | 'management' | 'notes' | 'gallery'>('general');
     const [saving, setSaving] = useState(false);
     const [showCategoryManager, setShowCategoryManager] = useState(false);
     const [invoicePhoto, setInvoicePhoto] = useState<File | null>(null);
+    const [itemPhotos, setItemPhotos] = useState<any[]>([]);
+    const [loadingPhotos, setLoadingPhotos] = useState(false);
 
     const [formData, setFormData] = useState({
         // General
@@ -65,13 +67,18 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [cats, peeps] = await Promise.all([getCategories(), getPeople()]);
+                const [cats, peeps, photos] = await Promise.all([
+                    getCategories(),
+                    getPeople(),
+                    getItemPhotos(item.id)
+                ]);
                 setCategories(cats);
                 setPeople(peeps);
+                setItemPhotos(photos);
             } catch (e) { console.error(e); }
         };
         loadData();
-    }, []);
+    }, [item.id]);
 
     const selectedCategory = categories.find((c: Category) => c.id === Number(formData.category_id));
     const categoryName = selectedCategory?.name?.toLowerCase() || '';
@@ -371,13 +378,132 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
         </div>
     );
 
+    const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files?.[0]) return;
+        if (itemPhotos.length >= 10) {
+            alert('Máximo 10 fotos por objeto');
+            return;
+        }
+
+        const file = e.target.files[0];
+        const fd = new FormData();
+        fd.append('photo', file);
+
+        try {
+            setLoadingPhotos(true);
+            await addItemPhoto(item.id, file);
+            const updated = await getItemPhotos(item.id);
+            setItemPhotos(updated);
+            onSaved(); // Notify parent to refresh list if needed
+        } catch (err) {
+            console.error(err);
+            alert('Error al subir foto');
+        } finally {
+            setLoadingPhotos(false);
+        }
+    };
+
+    const handleDeletePhoto = async (photoId: number) => {
+        if (!confirm('¿Borrar esta foto?')) return;
+        try {
+            await deleteItemPhoto(item.id, photoId);
+            setItemPhotos(prev => prev.filter(p => p.id !== photoId));
+            onSaved();
+        } catch (err) { alert('Error al borrar'); }
+    };
+
+    const handleSetPrimary = async (photoId: number) => {
+        try {
+            await setItemPhotoPrimary(item.id, photoId);
+            const updated = await getItemPhotos(item.id);
+            setItemPhotos(updated);
+            onSaved();
+        } catch (err) { alert('Error al establecer principal'); }
+    };
+
+    const renderGalleryTab = () => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
+                {itemPhotos.map((p) => (
+                    <div key={p.id} style={{
+                        position: 'relative',
+                        aspectRatio: '1',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: p.is_primary ? '2px solid var(--primary)' : '1px solid var(--glass-border)',
+                        background: 'rgba(0,0,0,0.3)'
+                    }}>
+                        <img src={p.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+
+                        <div style={{ position: 'absolute', top: 4, right: 4, display: 'flex', gap: 4 }}>
+                            {!p.is_primary && (
+                                <button onClick={() => handleDeletePhoto(p.id)} style={{ padding: 4, background: 'rgba(255,0,0,0.6)', borderRadius: '4px' }}>
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
+                        </div>
+
+                        {!p.is_primary && (
+                            <button
+                                onClick={() => handleSetPrimary(p.id)}
+                                style={{
+                                    position: 'absolute', bottom: 4, left: 4, right: 4,
+                                    background: 'rgba(0,0,0,0.6)', fontSize: '0.7em', padding: '4px',
+                                    borderRadius: '4px'
+                                }}
+                            >
+                                Principal
+                            </button>
+                        )}
+
+                        {p.is_primary && (
+                            <div style={{ position: 'absolute', bottom: 4, right: 4, color: 'var(--primary)', background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '2px' }}>
+                                <CheckCircle size={14} />
+                            </div>
+                        )}
+                    </div>
+                ))}
+
+                {itemPhotos.length < 10 && (
+                    <div style={{
+                        aspectRatio: '1',
+                        border: '1px dashed var(--glass-border)',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        opacity: loadingPhotos ? 0.5 : 1
+                    }}>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleUploadPhoto}
+                            disabled={loadingPhotos}
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                        />
+                        <Camera size={24} style={{ marginBottom: 4 }} />
+                        <span style={{ fontSize: '0.8em' }}>{loadingPhotos ? 'Subiendo...' : 'Añadir Foto'}</span>
+                    </div>
+                )}
+            </div>
+            <p style={{ fontSize: '0.8em', opacity: 0.6, textAlign: 'center' }}>
+                Puedes subir hasta 10 fotos por objeto.
+            </p>
+        </div>
+    );
+
 
 
     const tabs = [
         { id: 'general', label: 'General', icon: <Package size={16} /> },
+        { id: 'gallery', label: 'Galería', icon: <Image size={16} /> },
         { id: 'purchase', label: 'Compra', icon: <DollarSign size={16} /> },
         { id: 'management', label: 'Gestión', icon: <AlertCircle size={16} /> },
-        { id: 'category', label: 'Detalles', icon: selectedCategory ? null : <FileText size={16} /> },
+        { id: 'category', label: 'Detalles', icon: selectedCategory ? <Settings size={16} /> : <FileText size={16} /> },
         { id: 'notes', label: 'Notas', icon: <FileText size={16} /> }
     ];
 
@@ -423,6 +549,7 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
                 {/* Content */}
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '5px' }}>
                     {activeTab === 'general' && renderGeneralTab()}
+                    {activeTab === 'gallery' && renderGalleryTab()}
                     {activeTab === 'purchase' && renderPurchaseTab()}
                     {activeTab === 'management' && renderManagementTab()}
                     {activeTab === 'category' && renderCategoryTab()}
