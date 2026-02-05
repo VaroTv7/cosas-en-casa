@@ -103,28 +103,51 @@ export default async function routes(fastify: FastifyInstance) {
 
     // GET Orphans (Limbo) - Items, Containers, or Furnitures without valid parents
     fastify.get('/api/orphans', async () => {
-        const strayItems = db.prepare(`
-            SELECT i.*, c.name as container_name 
-            FROM items i 
-            LEFT JOIN containers c ON i.container_id = c.id 
-            WHERE i.container_id IS NULL OR c.id IS NULL
-        `).all();
-
-        const strayContainers = db.prepare(`
-            SELECT c.* 
-            FROM containers c
-            LEFT JOIN spaces s ON c.space_id = s.id
-            LEFT JOIN furnitures f ON c.furniture_id = f.id
-            WHERE (c.space_id IS NULL AND c.furniture_id IS NULL)
-               OR (c.space_id IS NOT NULL AND s.id IS NULL)
-               OR (c.furniture_id IS NOT NULL AND f.id IS NULL)
-        `).all();
-
+        // 1. Furnitures without valid space
         const strayFurnitures = db.prepare(`
             SELECT f.* 
             FROM furnitures f
             LEFT JOIN spaces s ON f.space_id = s.id
             WHERE f.space_id IS NULL OR s.id IS NULL
+        `).all();
+
+        // 2. Containers without valid space OR valid furniture
+        // Also includes containers inside a 'stray' furniture
+        const strayContainers = db.prepare(`
+            SELECT c.* 
+            FROM containers c
+            LEFT JOIN spaces s ON c.space_id = s.id
+            LEFT JOIN furnitures f ON c.furniture_id = f.id
+            LEFT JOIN spaces s_f ON f.space_id = s_f.id
+            WHERE 
+               -- Case A: No parent assigned
+               (c.space_id IS NULL AND c.furniture_id IS NULL)
+               -- Case B: Parent Space invalid
+               OR (c.space_id IS NOT NULL AND s.id IS NULL)
+               -- Case C: Parent Furniture invalid
+               OR (c.furniture_id IS NOT NULL AND f.id IS NULL)
+               -- Case D: Parent Furniture is valid BUT that Furniture is stray (no space)
+               OR (c.furniture_id IS NOT NULL AND (f.space_id IS NULL OR s_f.id IS NULL))
+        `).all();
+
+        // 3. Items without valid container OR inside a stray container
+        const strayItems = db.prepare(`
+            SELECT i.*, c.name as container_name 
+            FROM items i 
+            LEFT JOIN containers c ON i.container_id = c.id 
+            LEFT JOIN spaces s ON c.space_id = s.id
+            LEFT JOIN furnitures f ON c.furniture_id = f.id
+            LEFT JOIN spaces s_f ON f.space_id = s_f.id
+            WHERE 
+                -- Case A: No container or Container doesn't exist
+                (i.container_id IS NULL OR c.id IS NULL)
+                -- Case B: Container exists but is stray
+                OR (
+                    (c.space_id IS NULL AND c.furniture_id IS NULL)
+                    OR (c.space_id IS NOT NULL AND s.id IS NULL)
+                    OR (c.furniture_id IS NOT NULL AND f.id IS NULL)
+                    OR (c.furniture_id IS NOT NULL AND (f.space_id IS NULL OR s_f.id IS NULL))
+                )
         `).all();
 
         return {

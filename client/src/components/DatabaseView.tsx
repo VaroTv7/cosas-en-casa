@@ -248,8 +248,9 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const data = await getInventory();
+            const [data, orphans] = await Promise.all([getInventory(), getOrphans()]);
             setInventory(data);
+            setOrphansData(orphans);
         } catch (e) {
             console.error('Error loading inventory:', e);
         } finally {
@@ -290,16 +291,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         }
     }, [location.search]);
 
-    // Fetch orphans when in Limbo
-    useEffect(() => {
-        if (activeTab === 'limbo') {
-            setLoading(true);
-            getOrphans().then(data => {
-                setOrphansData(data);
-            }).catch(e => console.error(e))
-                .finally(() => setLoading(false));
-        }
-    }, [activeTab]);
+
 
     // Flatten containers and items for easy access
     const allFurnitures = inventory.flatMap(s => s.furnitures ? s.furnitures.map(f => ({ ...f, space_name: s.name })) : []);
