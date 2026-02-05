@@ -106,6 +106,8 @@ docker-compose up -d --build
 - **Smart Search**: Expansión automática de grupos al filtrar.
 - **Limbo V2**: Detección recursiva y navegación directa desde Dashboard.
 - **Live Counts**: Indicadores de pestañas corregidos y reactivos.
+- **Custom Icons**: Personalización de iconos para espacios, muebles y contenedores (Icon Picker).
+
 
 ### v0.8.0 (Deep Hierarchy & Integrity)
 - **Muebles**: Implementación de nivel intermedio Mueble entre Espacio y Contenedor.

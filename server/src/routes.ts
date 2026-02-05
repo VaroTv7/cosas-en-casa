@@ -89,13 +89,14 @@ export default async function routes(fastify: FastifyInstance) {
                 properties: {
                     name: { type: 'string', minLength: 1 },
                     description: { type: 'string' },
-                    parent_id: { type: 'number' }
+                    parent_id: { type: 'number' },
+                    icon: { type: 'string' }
                 }
             }
         }
-    }, async (req: FastifyRequest<{ Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
-        const { name, description, parent_id } = req.body;
-        const result = db.prepare('INSERT INTO spaces (name, description, parent_id) VALUES (?, ?, ?)').run(name, description || null, parent_id || null);
+    }, async (req: FastifyRequest<{ Body: { name: string, description?: string, parent_id?: number, icon?: string } }>, reply) => {
+        const { name, description, parent_id, icon } = req.body;
+        const result = db.prepare('INSERT INTO spaces (name, description, parent_id, icon) VALUES (?, ?, ?, ?)').run(name, description || null, parent_id || null, icon || null);
         return { id: result.lastInsertRowid };
     });
 
@@ -170,7 +171,7 @@ export default async function routes(fastify: FastifyInstance) {
     // POST Furniture (Multipart)
     fastify.post('/api/furnitures', async (req, reply) => {
         const parts = req.parts();
-        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined;
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined, icon: string | undefined;
 
         for await (const part of parts) {
             if (part.type === 'file') {
@@ -179,13 +180,14 @@ export default async function routes(fastify: FastifyInstance) {
                 if (part.fieldname === 'name') name = (part.value as string);
                 if (part.fieldname === 'description') description = (part.value as string);
                 if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
+                if (part.fieldname === 'icon') icon = (part.value as string);
             }
         }
 
         if (!name) return reply.status(400).send({ error: 'Falta el nombre' });
         if (!space_id) return reply.status(400).send({ error: 'Falta el espacio' });
 
-        const result = db.prepare('INSERT INTO furnitures (name, description, space_id, photo_url) VALUES (?, ?, ?, ?)').run(name, description || null, space_id, photo_url);
+        const result = db.prepare('INSERT INTO furnitures (name, description, space_id, photo_url, icon) VALUES (?, ?, ?, ?, ?)').run(name, description || null, space_id, photo_url, icon || null);
         return { id: result.lastInsertRowid, photo_url };
     });
 
@@ -193,7 +195,7 @@ export default async function routes(fastify: FastifyInstance) {
     fastify.put('/api/furnitures/:id', async (req, reply) => {
         const { id } = (req.params as { id: string });
         const parts = req.parts();
-        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined;
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined, icon: string | undefined;
 
         // Get current furniture to preserve photo if not updated
         const currentFurniture = db.prepare('SELECT photo_url FROM furnitures WHERE id = ?').get(id) as { photo_url: string };
@@ -207,6 +209,7 @@ export default async function routes(fastify: FastifyInstance) {
                 if (part.fieldname === 'name') name = (part.value as string);
                 if (part.fieldname === 'description') description = (part.value as string);
                 if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
+                if (part.fieldname === 'icon') icon = (part.value as string);
             }
         }
 
@@ -217,6 +220,7 @@ export default async function routes(fastify: FastifyInstance) {
         if (description !== undefined) { updates.push('description = ?'); values.push(description || null); }
         if (space_id) { updates.push('space_id = ?'); values.push(space_id); }
         if (photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
+        if (icon !== undefined) { updates.push('icon = ?'); values.push(icon); }
 
         if (updates.length === 0) return { success: true, message: 'Nada que actualizar' };
 
@@ -238,10 +242,10 @@ export default async function routes(fastify: FastifyInstance) {
         return { success: true };
     });
 
-    // POST Container (Multipart) - v0.8: Now supports furniture_id
+    // POST Container (Multipart) - v0.8: Now supports furniture_id and icon
     fastify.post('/api/containers', async (req, reply) => {
         const parts = req.parts();
-        let name: string | undefined, description: string | undefined, space_id: number | undefined, furniture_id: number | undefined, photo_url: string | null | undefined;
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, furniture_id: number | undefined, photo_url: string | null | undefined, icon: string | undefined;
 
         for await (const part of parts) {
             if (part.type === 'file') {
@@ -251,12 +255,13 @@ export default async function routes(fastify: FastifyInstance) {
                 if (part.fieldname === 'description') description = (part.value as string);
                 if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
                 if (part.fieldname === 'furniture_id') furniture_id = parseInt(part.value as string);
+                if (part.fieldname === 'icon') icon = (part.value as string);
             }
         }
 
         if (!name) return reply.status(400).send({ error: 'Falta el nombre' });
 
-        const result = db.prepare('INSERT INTO containers (name, description, space_id, furniture_id, photo_url) VALUES (?, ?, ?, ?, ?)').run(name, description || null, space_id || null, furniture_id || null, photo_url);
+        const result = db.prepare('INSERT INTO containers (name, description, space_id, furniture_id, photo_url, icon) VALUES (?, ?, ?, ?, ?, ?)').run(name, description || null, space_id || null, furniture_id || null, photo_url, icon || null);
         return { id: result.lastInsertRowid, photo_url };
     });
 
@@ -402,15 +407,16 @@ export default async function routes(fastify: FastifyInstance) {
                 properties: {
                     name: { type: 'string', minLength: 1 },
                     description: { type: 'string' },
-                    parent_id: { type: 'number', nullable: true }
+                    parent_id: { type: 'number', nullable: true },
+                    icon: { type: 'string' }
                 }
             }
         }
-    }, async (req: FastifyRequest<{ Params: { id: string }, Body: { name: string, description?: string, parent_id?: number } }>, reply) => {
+    }, async (req: FastifyRequest<{ Params: { id: string }, Body: { name: string, description?: string, parent_id?: number, icon?: string } }>, reply) => {
         const { id } = req.params;
-        const { name, description, parent_id } = req.body;
+        const { name, description, parent_id, icon } = req.body;
 
-        const result = db.prepare('UPDATE spaces SET name = ?, description = ?, parent_id = ? WHERE id = ?').run(name, description || null, parent_id || null, id);
+        const result = db.prepare('UPDATE spaces SET name = ?, description = ?, parent_id = ?, icon = ? WHERE id = ?').run(name, description || null, parent_id || null, icon || null, id);
 
         if (result.changes === 0) return reply.status(404).send({ error: 'Espacio no encontrado' });
         return { success: true };
@@ -419,7 +425,7 @@ export default async function routes(fastify: FastifyInstance) {
     fastify.put('/api/containers/:id', async (req, reply) => {
         const { id } = (req.params as { id: string });
         const parts = req.parts();
-        let name: string | undefined, description: string | undefined, space_id: number | undefined, furniture_id: number | undefined, photo_url: string | null | undefined;
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, furniture_id: number | undefined, photo_url: string | null | undefined, icon: string | undefined;
 
         // Get current container to preserve photo if not updated
         const currentContainer = db.prepare('SELECT photo_url FROM containers WHERE id = ?').get(id) as { photo_url: string };
@@ -434,6 +440,7 @@ export default async function routes(fastify: FastifyInstance) {
                 if (part.fieldname === 'description') description = (part.value as string);
                 if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
                 if (part.fieldname === 'furniture_id') furniture_id = parseInt(part.value as string);
+                if (part.fieldname === 'icon') icon = (part.value as string);
             }
         }
 
@@ -445,6 +452,7 @@ export default async function routes(fastify: FastifyInstance) {
         if (space_id !== undefined) { updates.push('space_id = ?'); values.push(space_id || null); }
         if (furniture_id !== undefined) { updates.push('furniture_id = ?'); values.push(furniture_id || null); }
         if (photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
+        if (icon !== undefined) { updates.push('icon = ?'); values.push(icon); }
 
         if (updates.length === 0) return { success: true, message: 'Nada que actualizar' };
 

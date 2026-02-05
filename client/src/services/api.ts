@@ -9,6 +9,7 @@ export interface Space {
     name: string;
     description?: string;
     parent_id?: number;
+    icon?: string; // v0.8.1 Custom Icon
     furnitures: Furniture[];  // v0.8: Muebles dentro del espacio
     containers: Container[];  // Contenedores sueltos (sin mueble asignado)
 }
@@ -20,7 +21,9 @@ export interface Furniture {
     description?: string;
     space_id?: number;
     space_name?: string;  // From JOIN
+    space_icon?: string; // v0.8.1 Parent Icon
     photo_url?: string;
+    icon?: string; // v0.8.1 Custom Icon
     containers: Container[];
 }
 
@@ -29,8 +32,13 @@ export interface Container {
     name: string;
     description?: string;
     space_id?: number;
+    space_name?: string;
+    space_icon?: string;
     furniture_id?: number;  // v0.8: Can be in a furniture
+    furniture_name?: string;
+    furniture_icon?: string;
     photo_url?: string;
+    icon?: string; // v0.8.1 Custom Icon
     items: Item[];
 }
 

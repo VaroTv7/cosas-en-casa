@@ -12,6 +12,16 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 export const initDb = () => {
+  // Migrations for icons (v0.8.1)
+  const tables = ['spaces', 'furnitures', 'containers', 'items'];
+  tables.forEach(table => {
+    try {
+      db.prepare(`ALTER TABLE ${table} ADD COLUMN icon TEXT`).run();
+    } catch (e) {
+      // Column likely exists, ignore
+    }
+  });
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS spaces (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

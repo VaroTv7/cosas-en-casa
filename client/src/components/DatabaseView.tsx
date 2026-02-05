@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ChevronDown, ArrowLeft, Briefcase, FileText, ArrowRight, Armchair, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ChevronDown, ArrowLeft, Briefcase, FileText, ArrowRight, Armchair, AlertTriangle, CheckCircle, LayoutGrid, Archive, BedDouble, Bath, Tv, Utensils, Shirt, Monitor, Book, Wrench, Car, Bike, Gamepad, Music, Dog, Cat, Map, Sun, Moon, Sofa, Bed, ChefHat, Dumbbell, Wallet } from 'lucide-react';
 import type { Space, Container, Item, Furniture, OrphansResponse } from '../services/api';
 import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems, createFurniture, updateFurniture, deleteFurniture, getOrphans } from '../services/api';
 
@@ -20,14 +20,26 @@ interface EditModalProps {
 }
 
 
+
+const ICON_MAP: Record<string, any> = {
+    home: Home, box: Box, package: Package, armchair: Armchair, layoutgrid: LayoutGrid,
+    archive: Archive, beddouble: BedDouble, bath: Bath, tv: Tv, utensils: Utensils,
+    shirt: Shirt, monitor: Monitor, book: Book, wrench: Wrench, car: Car, bike: Bike,
+    gamepad: Gamepad, music: Music, dog: Dog, cat: Cat, map: Map, sun: Sun, moon: Moon,
+    sofa: Sofa, bed: Bed, chefhat: ChefHat, dumbbell: Dumbbell, wallet: Wallet
+};
+
+const AVAILABLE_ICONS = Object.keys(ICON_MAP);
+
 interface CollapsibleGroupProps {
     title: string;
     count: number;
+    icon?: string;
     children: React.ReactNode;
     defaultOpen?: boolean;
 }
 
-const CollapsibleGroup: React.FC<CollapsibleGroupProps> = ({ title, count, children, defaultOpen = false }) => {
+const CollapsibleGroup: React.FC<CollapsibleGroupProps> = ({ title, count, icon, children, defaultOpen = false }) => {
     const [isOpen, setIsOpen] = useState(defaultOpen);
 
     useEffect(() => {
@@ -46,6 +58,7 @@ const CollapsibleGroup: React.FC<CollapsibleGroupProps> = ({ title, count, child
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', opacity: 0.9 }}>
                     {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    {icon && ICON_MAP[icon.toLowerCase()] && React.createElement(ICON_MAP[icon.toLowerCase()], { size: 18, style: { opacity: 0.8 } })}
                     {title}
                 </div>
                 <span style={{
@@ -89,13 +102,14 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
     const [name, setName] = useState(entity?.name || '');
     const [description, setDescription] = useState(entity?.description || '');
     const [parentId, setParentId] = useState(getInitialParentId());
+    const [icon, setIcon] = useState(entity?.icon || (type === 'spaces' ? 'home' : type === 'furnitures' ? 'armchair' : 'box'));
     const [saving, setSaving] = useState(false);
 
     const handleSave = async () => {
         setSaving(true);
         try {
             if (type === 'spaces') {
-                const data = { name, description, parent_id: parentId ? parseInt(parentId) : null };
+                const data = { name, description, parent_id: parentId ? parseInt(parentId) : null, icon };
                 if (isNew) {
                     await createSpace(data);
                 } else {
@@ -105,6 +119,7 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                 const formData = new FormData();
                 formData.append('name', name);
                 formData.append('description', description);
+                formData.append('icon', icon);
                 if (parentId) formData.append('space_id', parentId);
 
                 if (isNew) {
@@ -116,6 +131,7 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                 const formData = new FormData();
                 formData.append('name', name);
                 formData.append('description', description);
+                formData.append('icon', icon);
 
                 // Unified logic for Furniture vs Space parent
                 if (parentId.toString().startsWith('furniture-')) {
@@ -198,6 +214,30 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                             style={{ width: '100%', resize: 'vertical' }}
                         />
                     </div>
+
+                    {!isItem && (
+                        <div style={{ marginTop: '0.5rem' }}>
+                            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Icono</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(36px, 1fr))', gap: '6px', maxHeight: '120px', overflowY: 'auto', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px' }}>
+                                {AVAILABLE_ICONS.map(iconName => {
+                                    const Ico = ICON_MAP[iconName];
+                                    return (
+                                        <div key={iconName}
+                                            onClick={() => setIcon(iconName)}
+                                            style={{
+                                                padding: '6px', borderRadius: '6px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                                                background: icon === iconName ? 'var(--primary)' : 'transparent',
+                                                border: icon === iconName ? '1px solid rgba(255,255,255,0.8)' : '1px solid transparent'
+                                            }}
+                                            title={iconName}
+                                        >
+                                            <Ico size={18} />
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {type === 'furnitures' && (
                         <div>
@@ -339,12 +379,13 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
 
 
     // Flatten containers and items for easy access
-    const allFurnitures = inventory.flatMap(s => s.furnitures ? s.furnitures.map(f => ({ ...f, space_name: s.name })) : []);
+    // Flatten containers and items for easy access
+    const allFurnitures = inventory.flatMap(s => s.furnitures ? s.furnitures.map(f => ({ ...f, space_name: s.name, space_icon: s.icon })) : []);
     const allContainers = [
-        ...inventory.flatMap(s => s.containers.map(c => ({ ...c, space_name: s.name, furniture_name: undefined }))),
-        ...allFurnitures.flatMap(f => f.containers.map(c => ({ ...c, space_name: f.space_name, furniture_name: f.name })))
+        ...inventory.flatMap(s => s.containers.map(c => ({ ...c, space_name: s.name, space_icon: s.icon, furniture_name: undefined, furniture_icon: undefined }))),
+        ...allFurnitures.flatMap(f => f.containers.map(c => ({ ...c, space_name: f.space_name, space_icon: f.space_icon, furniture_name: f.name, furniture_icon: f.icon })))
     ];
-    const allItems = allContainers.flatMap(c => c.items.map(i => ({ ...i, container_name: c.name })));
+    const allItems = allContainers.flatMap(c => c.items.map(i => ({ ...i, container_name: c.name, container_icon: c.icon })));
 
     // Filter based on search
     const filteredSpaces = inventory.filter(s =>
@@ -824,7 +865,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                                     groups[key].push(f);
                                 });
                                 return Object.entries(groups).map(([spaceName, items]) => (
-                                    <CollapsibleGroup key={spaceName} title={`En ${spaceName}`} count={items.length} defaultOpen={!!searchQuery}>
+                                    <CollapsibleGroup key={spaceName} title={`En ${spaceName}`} count={items.length} defaultOpen={!!searchQuery} icon={items[0]?.space_icon}>
                                         {items.map(furniture =>
                                             renderClickableRow('furnitures', furniture,
                                                 () => setSelectedFurniture({ ...furniture, space_name: furniture.space_name }),
@@ -846,7 +887,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                                     groups[key].push(c);
                                 });
                                 return Object.entries(groups).map(([groupName, items]) => (
-                                    <CollapsibleGroup key={groupName} title={groupName} count={items.length} defaultOpen={!!searchQuery}>
+                                    <CollapsibleGroup key={groupName} title={groupName} count={items.length} defaultOpen={!!searchQuery} icon={items[0]?.furniture_icon || items[0]?.space_icon}>
                                         {items.map(container =>
                                             renderClickableRow('containers', container,
                                                 () => setSelectedContainer(container),
@@ -865,7 +906,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                                     groups[key].push(i);
                                 });
                                 return Object.entries(groups).map(([containerName, items]) => (
-                                    <CollapsibleGroup key={containerName} title={`En ${containerName}`} count={items.length} defaultOpen={!!searchQuery}>
+                                    <CollapsibleGroup key={containerName} title={`En ${containerName}`} count={items.length} defaultOpen={!!searchQuery} icon={items[0]?.container_icon}>
                                         {items.map(item =>
                                             renderClickableRow('items', item, () => setSelectedItem(item))
                                         )}
