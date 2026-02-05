@@ -19,28 +19,48 @@ interface EditModalProps {
 }
 
 const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers, onClose, onSave }) => {
+    const isNew = !entity?.id;
+    const isItem = type === 'items';
+
+    const getInitialParentId = () => {
+        if (type === 'containers') {
+            if (entity?.furniture_id) return `furniture-${entity.furniture_id}`;
+            if (entity?.space_id) return `space-${entity.space_id}`;
+            // If new, maybe default to first space? or empty
+            return '';
+        }
+        if (type === 'furnitures') {
+            // For furnitures, parent is always a space
+            return entity?.space_id ? entity.space_id.toString() : '';
+        }
+        if (type === 'items') {
+            return entity?.container_id ? entity.container_id.toString() : '';
+        }
+        // Spaces
+        return entity?.parent_id ? entity.parent_id.toString() : '';
+    };
+
     const [name, setName] = useState(entity?.name || '');
     const [description, setDescription] = useState(entity?.description || '');
-    const [parentId, setParentId] = useState(entity?.parent_id || entity?.space_id || entity?.container_id || '');
+    const [parentId, setParentId] = useState(getInitialParentId());
     const [saving, setSaving] = useState(false);
-
-    const isItem = type === 'items';
-    const isNew = !entity?.id;
 
     const handleSave = async () => {
         setSaving(true);
         try {
             if (type === 'spaces') {
+                const data = { name, description, parent_id: parentId ? parseInt(parentId) : null };
                 if (isNew) {
-                    await createSpace({ name, description, parent_id: parentId || null });
+                    await createSpace(data);
                 } else {
-                    await updateSpace(entity.id, { name, description, parent_id: parentId || null });
+                    await updateSpace(entity.id, data);
                 }
             } else if (type === 'furnitures') {
                 const formData = new FormData();
                 formData.append('name', name);
                 formData.append('description', description);
-                if (parentId) formData.append('space_id', parentId.toString());
+                if (parentId) formData.append('space_id', parentId);
+
                 if (isNew) {
                     await createFurniture(formData);
                 } else {
@@ -50,19 +70,35 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                 const formData = new FormData();
                 formData.append('name', name);
                 formData.append('description', description);
-                if (parentId) formData.append('space_id', parentId.toString());
+
+                // Unified logic for Furniture vs Space parent
+                if (parentId.toString().startsWith('furniture-')) {
+                    formData.append('furniture_id', parentId.toString().replace('furniture-', ''));
+                    formData.append('space_id', ''); // Clear space_id 
+                } else if (parentId.toString().startsWith('space-')) {
+                    formData.append('space_id', parentId.toString().replace('space-', ''));
+                    formData.append('furniture_id', ''); // Clear furniture_id
+                } else if (!isNaN(parseInt(parentId))) {
+                    // Legacy or direct ID, assume Space if standard number (or check type?)
+                    // Safest is to rely on select values always having prefix OR context
+                    // For now assume space if just number for backward compat?
+                    formData.append('space_id', parentId.toString());
+                    formData.append('furniture_id', '');
+                }
+
                 if (isNew) {
                     await createContainer(formData);
                 } else {
                     await updateContainer(entity.id, formData);
                 }
             } else if (isItem && isNew) {
-                // Handled by AddItemForm now
+                // Should use AddItemForm, but if forced here:
                 onSave();
                 return;
             }
             onSave();
         } catch (err) {
+            console.error(err);
             alert('Error al guardar');
         } finally {
             setSaving(false);
@@ -136,7 +172,7 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                                 <option value="">Sin ubicación asignada</option>
                                 <optgroup label="Espacios (Directamente en el suelo)">
                                     {spaces.map(s => (
-                                        <option key={`space-${s.id}`} value={s.id}>{s.name}</option>
+                                        <option key={`space-${s.id}`} value={`space-${s.id}`}>{s.name}</option>
                                     ))}
                                 </optgroup>
                                 {spaces.map(s => s.furnitures && s.furnitures.length > 0 && (
@@ -157,10 +193,15 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                         <div>
                             <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Contenedor (opcional)</label>
                             <select value={parentId} onChange={(e) => setParentId(e.target.value)} style={{ width: '100%' }}>
-                                <option value="">Sin contenedor asignado</option>
-                                {containers.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
+                                <option value="">Sin contenedor asignada</option>
+                                {containers.map(c => {
+                                    const ext = c as any;
+                                    return (
+                                        <option key={c.id} value={c.id}>
+                                            {c.name} {ext.furniture_name ? `(en ${ext.furniture_name})` : ext.space_name ? `(en ${ext.space_name})` : ''}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
                     )}

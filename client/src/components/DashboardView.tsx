@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { AlertCircle, UserMinus, CheckCircle, Package, Search, X, MapPin, Box, Loader2 } from 'lucide-react';
-import type { Space, Item, SearchResults, SearchResultItem } from '../services/api';
-import { searchGlobal } from '../services/api';
+import { AlertCircle, UserMinus, CheckCircle, Package, Search, X, MapPin, Box, Loader2, AlertTriangle, Coins } from 'lucide-react';
+import type { Space, Item, SearchResults, SearchResultItem, OrphansResponse } from '../services/api';
+import { searchGlobal, getOrphans } from '../services/api';
 
 interface Props {
     inventory: Space[];
@@ -51,7 +51,13 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
         setShowResults(false);
     };
 
-    // Flatten inventory to get all items
+    const [orphans, setOrphans] = useState<OrphansResponse>({ items: [], containers: [], furnitures: [] });
+
+    useEffect(() => {
+        getOrphans().then(setOrphans).catch(console.error);
+    }, [inventory]);
+
+    // Flatten inventory to get all items (recursively including furnitures)
     const allItems = useMemo(() => {
         const items: Item[] = [];
         inventory.forEach(space => {
@@ -60,9 +66,22 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
                     if (container.items) items.push(...container.items);
                 });
             }
+            if (space.furnitures) {
+                space.furnitures.forEach(furniture => {
+                    if (furniture.containers) {
+                        furniture.containers.forEach(container => {
+                            if (container.items) items.push(...container.items);
+                        });
+                    }
+                });
+            }
         });
         return items;
     }, [inventory]);
+
+    const totalValue = useMemo(() => {
+        return allItems.reduce((sum, item) => sum + (item.purchase_price || 0) * (item.quantity || 1), 0);
+    }, [allItems]);
 
     const lowStockItems = allItems.filter(
         item => item.min_quantity && item.min_quantity > 0 && item.quantity <= item.min_quantity
@@ -252,24 +271,59 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
                 )}
             </div>
 
-            {/* Quick Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                <div style={{ background: 'var(--glass-bg)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '2em', fontWeight: 'bold', color: lowStockItems.length > 0 ? '#ef4444' : '#10b981' }}>
-                        {lowStockItems.length}
+            {/* Orphans Alert */}
+            {(orphans.items.length > 0 || orphans.containers.length > 0 || orphans.furnitures.length > 0) && (
+                <div style={{
+                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--error)',
+                    borderRadius: '12px', padding: '16px', marginBottom: '20px',
+                    display: 'flex', alignItems: 'center', gap: '12px'
+                }}>
+                    <AlertTriangle color="var(--error)" size={24} />
+                    <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: 0, color: 'var(--error)', fontSize: '1.1em' }}>⚠️ Objetos Perdidos (Limbo)</h3>
+                        <p style={{ margin: '4px 0 0 0', opacity: 0.8, fontSize: '0.9em' }}>
+                            Hay elementos sin ubicación válida:
+                            {orphans.items.length > 0 && ` ${orphans.items.length} Objetos`}
+                            {orphans.containers.length > 0 && ` ${orphans.containers.length} Contenedores`}
+                            {orphans.furnitures.length > 0 && ` ${orphans.furnitures.length} Muebles`}
+                        </p>
                     </div>
-                    <div style={{ fontSize: '0.8em', opacity: 0.7 }}>Alertas de Stock</div>
                 </div>
-                <div style={{ background: 'var(--glass-bg)', padding: '15px', borderRadius: '12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#3b82f6' }}>
-                        {loanedItems.length}
+            )}
+
+            {/* Quick Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+                <div style={{ background: 'var(--glass-bg)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', opacity: 0.7 }}>
+                        <Package size={18} /> <span style={{ fontSize: '0.9em' }}>Total Objetos</span>
                     </div>
-                    <div style={{ fontSize: '0.8em', opacity: 0.7 }}>Objetos Prestados</div>
+                    <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>{allItems.length}</div>
+                </div>
+                <div style={{ background: 'var(--glass-bg)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', opacity: 0.7 }}>
+                        <Coins size={18} /> <span style={{ fontSize: '0.9em' }}>Valor Est.</span>
+                    </div>
+                    <div style={{ fontSize: '1.5em', fontWeight: 'bold' }}>
+                        {totalValue.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                    </div>
+                </div>
+                <div style={{ background: 'var(--glass-bg)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', opacity: 0.7 }}>
+                        {lowStockItems.length > 0 ? <AlertCircle size={18} color="#ef4444" /> : <CheckCircle size={18} color="#10b981" />}
+                        <span style={{ fontSize: '0.9em' }}>Alertas Stock</span>
+                    </div>
+                    <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: lowStockItems.length > 0 ? '#ef4444' : 'inherit' }}>{lowStockItems.length}</div>
+                </div>
+                <div style={{ background: 'var(--glass-bg)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', opacity: 0.7 }}>
+                        <UserMinus size={18} /> <span style={{ fontSize: '0.9em' }}>Prestados</span>
+                    </div>
+                    <div style={{ fontSize: '1.5em', fontWeight: 'bold', color: loanedItems.length > 0 ? '#3b82f6' : 'inherit' }}>{loanedItems.length}</div>
                 </div>
             </div>
 
             {/* Empty State */}
-            {lowStockItems.length === 0 && loanedItems.length === 0 && (
+            {lowStockItems.length === 0 && loanedItems.length === 0 && orphans.items.length === 0 && orphans.containers.length === 0 && (
                 <div style={{ textAlign: 'center', opacity: 0.5, padding: '40px' }}>
                     <CheckCircle size={48} style={{ marginBottom: '10px', color: '#10b981' }} />
                     <p>¡Todo en orden! No hay alertas ni préstamos activos.</p>

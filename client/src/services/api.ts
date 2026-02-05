@@ -398,6 +398,19 @@ export const searchGlobal = async (query: string): Promise<SearchResults> => {
     return response.data;
 };
 
+// ==================== v0.8 Orphans (Limbo) API ====================
+
+export interface OrphansResponse {
+    items: Item[];
+    containers: Container[];
+    furnitures: Furniture[];
+}
+
+export const getOrphans = async (): Promise<OrphansResponse> => {
+    const response = await api.get<OrphansResponse>('/orphans');
+    return response.data;
+};
+
 // ==================== v0.7 Backup API ====================
 
 export const exportData = async () => {

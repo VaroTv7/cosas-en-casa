@@ -101,6 +101,39 @@ export default async function routes(fastify: FastifyInstance) {
 
     // ==================== v0.8 Furnitures API ====================
 
+    // GET Orphans (Limbo) - Items, Containers, or Furnitures without valid parents
+    fastify.get('/api/orphans', async () => {
+        const strayItems = db.prepare(`
+            SELECT i.*, c.name as container_name 
+            FROM items i 
+            LEFT JOIN containers c ON i.container_id = c.id 
+            WHERE i.container_id IS NULL OR c.id IS NULL
+        `).all();
+
+        const strayContainers = db.prepare(`
+            SELECT c.* 
+            FROM containers c
+            LEFT JOIN spaces s ON c.space_id = s.id
+            LEFT JOIN furnitures f ON c.furniture_id = f.id
+            WHERE (c.space_id IS NULL AND c.furniture_id IS NULL)
+               OR (c.space_id IS NOT NULL AND s.id IS NULL)
+               OR (c.furniture_id IS NOT NULL AND f.id IS NULL)
+        `).all();
+
+        const strayFurnitures = db.prepare(`
+            SELECT f.* 
+            FROM furnitures f
+            LEFT JOIN spaces s ON f.space_id = s.id
+            WHERE f.space_id IS NULL OR s.id IS NULL
+        `).all();
+
+        return {
+            items: strayItems,
+            containers: strayContainers,
+            furnitures: strayFurnitures
+        };
+    });
+
     // GET all furnitures
     fastify.get('/api/furnitures', async () => {
         return db.prepare(`
