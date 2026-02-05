@@ -28,17 +28,20 @@ function getInventoryTree() {
 
     // Assign containers to furnitures or directly to spaces
     containers.forEach(c => {
-        const containerWithItems = { ...c, items: items.filter((i: any) => i.container_id === c.id) };
+        const containerWithItems = { ...c, items: items.filter((i: any) => i.container_id == c.id) };
 
         if (c.furniture_id) {
             // Container is in a furniture
+            let placed = false;
             for (const space of spaceMap.values()) {
-                const furniture = space.furnitures.find((f: any) => f.id === c.furniture_id);
+                const furniture = space.furnitures.find((f: any) => f.id == c.furniture_id);
                 if (furniture) {
                     furniture.containers.push(containerWithItems);
+                    placed = true;
                     break;
                 }
             }
+            if (!placed) console.warn(`Container ${c.id} (${c.name}) has furniture_id ${c.furniture_id} but furniture not found.`);
         } else if (c.space_id) {
             // Container is directly in a space (no furniture)
             const space = spaceMap.get(c.space_id);

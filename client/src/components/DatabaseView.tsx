@@ -396,8 +396,14 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                         {entity.description}
                     </div>
                 )}
-                {type === 'containers' && entity.space_name && (
-                    <div style={{ fontSize: '0.75em', opacity: 0.5 }}>📍 {entity.space_name}</div>
+                {type === 'containers' && (
+                    <div style={{ fontSize: '0.75em', opacity: 0.5 }}>
+                        {entity.furniture_name ? (
+                            <>🪑 {entity.furniture_name} <span style={{ opacity: 0.7 }}>en {entity.space_name}</span></>
+                        ) : (
+                            entity.space_name && <>📍 {entity.space_name}</>
+                        )}
+                    </div>
                 )}
                 {type === 'items' && entity.container_name && (
                     <div style={{ fontSize: '0.75em', opacity: 0.5 }}>📦 {entity.container_name}</div>
