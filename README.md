@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/Version-0.8.0-purple.svg)]()
+[![Version](https://img.shields.io/badge/Version-0.8.1-purple.svg)]()
 
 **Cosas en Casa** es una aplicación web de inventario doméstico profesional. Organiza, cataloga y encuentra tus pertenencias con metadatos extendidos, gestión de categorías, préstamos a personas, jerarquía profunda de muebles y un plano interactivo.
 
@@ -22,8 +22,14 @@
 - **Alertas Unificadas**: Un solo vistazo para ver Stock Bajo, Préstamos Activos y Alertas del Sistema.
 
 ### ⚠️ Zona de Recuperación "Limbo" (v0.8)
-- **Integridad de Datos**: Sistema de autodiagnóstico que detecta elementos "huérfanos" o mal asignados.
-- **Recuperación Visual**: Si un objeto o contenedor pierde su ubicación por error, aparecerá una alerta destacada en el Dashboard para que puedas reasignarlo fácilmente sin perder datos.
+- **Recuperación en Cascada**: Detecta automáticamente objetos dentro de contenedores perdidos y contenedores dentro de muebles perdidos, permitiendo una recuperación jerárquica masiva.
+- **Acceso Directo**: Navegación inmediata desde la alerta del Dashboard a la pestaña de gestión de integridad.
+- **Indicadores en Tiempo Real**: Badge de contador vivo que se actualiza al instante.
+
+### 📂 Organización Inteligente (v0.8)
+- **Vistas Agrupadas**: Despídete de las listas planas interminables. Ahora los muebles, contenedores y objetos se agrupan automáticamente por su ubicación padre.
+- **Desplegables (Accordions)**: Grupos colapsables para mantener la interfaz limpia y ordenada.
+- **Búsqueda Reactiva**: Al buscar, los grupos relevantes se expanden automáticamente para mostrarte los resultados ocultos.
 
 ### 🔍 Búsqueda Global (v0.6)
 - **Omnibox Inteligente**: Busca cualquier objeto por nombre, marca, modelo, etiquetas o descripción.
@@ -94,6 +100,12 @@ docker-compose up -d --build
 - [ ] PWA (Progressive Web App) para instalación en móvil.
 
 ## 📰 Changelog
+
+### v0.8.1 (UX Polish & Smart Features)
+- **Database Grouping**: Vistas agrupadas por ubicación con acordeones.
+- **Smart Search**: Expansión automática de grupos al filtrar.
+- **Limbo V2**: Detección recursiva y navegación directa desde Dashboard.
+- **Live Counts**: Indicadores de pestañas corregidos y reactivos.
 
 ### v0.8.0 (Deep Hierarchy & Integrity)
 - **Muebles**: Implementación de nivel intermedio Mueble entre Espacio y Contenedor.
