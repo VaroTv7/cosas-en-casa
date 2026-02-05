@@ -8,17 +8,43 @@ const UPLOADS_DIR = path.join(__dirname, '../uploads');
 
 function getInventoryTree() {
     const spaces = db.prepare('SELECT * FROM spaces').all() as any[];
+    const furnitures = db.prepare('SELECT * FROM furnitures').all() as any[];
     const containers = db.prepare('SELECT * FROM containers').all() as any[];
     const items = db.prepare('SELECT * FROM items').all() as any[];
 
-    // Simple nested structure builder
-    const spaceMap = new Map();
-    spaces.forEach(s => spaceMap.set(s.id, { ...s, containers: [] }));
+    // Build nested structure: Space -> Furniture[] -> Container[] -> Item[]
+    // Containers can be in a furniture OR directly in a space (furniture_id = null)
 
-    containers.forEach(c => {
-        const space = spaceMap.get(c.space_id);
+    const spaceMap = new Map();
+    spaces.forEach(s => spaceMap.set(s.id, { ...s, furnitures: [], containers: [] }));
+
+    // Assign furnitures to spaces
+    furnitures.forEach(f => {
+        const space = spaceMap.get(f.space_id);
         if (space) {
-            space.containers.push({ ...c, items: items.filter((i: any) => i.container_id === c.id) });
+            space.furnitures.push({ ...f, containers: [] });
+        }
+    });
+
+    // Assign containers to furnitures or directly to spaces
+    containers.forEach(c => {
+        const containerWithItems = { ...c, items: items.filter((i: any) => i.container_id === c.id) };
+
+        if (c.furniture_id) {
+            // Container is in a furniture
+            for (const space of spaceMap.values()) {
+                const furniture = space.furnitures.find((f: any) => f.id === c.furniture_id);
+                if (furniture) {
+                    furniture.containers.push(containerWithItems);
+                    break;
+                }
+            }
+        } else if (c.space_id) {
+            // Container is directly in a space (no furniture)
+            const space = spaceMap.get(c.space_id);
+            if (space) {
+                space.containers.push(containerWithItems);
+            }
         }
     });
 
@@ -70,8 +96,20 @@ export default async function routes(fastify: FastifyInstance) {
         return { id: result.lastInsertRowid };
     });
 
-    // POST Container (Multipart)
-    fastify.post('/api/containers', async (req, reply) => {
+    // ==================== v0.8 Furnitures API ====================
+
+    // GET all furnitures
+    fastify.get('/api/furnitures', async () => {
+        return db.prepare(`
+            SELECT f.*, s.name as space_name 
+            FROM furnitures f 
+            LEFT JOIN spaces s ON f.space_id = s.id 
+            ORDER BY s.name, f.name
+        `).all();
+    });
+
+    // POST Furniture (Multipart)
+    fastify.post('/api/furnitures', async (req, reply) => {
         const parts = req.parts();
         let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined;
 
@@ -86,8 +124,80 @@ export default async function routes(fastify: FastifyInstance) {
         }
 
         if (!name) return reply.status(400).send({ error: 'Falta el nombre' });
+        if (!space_id) return reply.status(400).send({ error: 'Falta el espacio' });
 
-        const result = db.prepare('INSERT INTO containers (name, description, space_id, photo_url) VALUES (?, ?, ?, ?)').run(name, description || null, space_id || null, photo_url);
+        const result = db.prepare('INSERT INTO furnitures (name, description, space_id, photo_url) VALUES (?, ?, ?, ?)').run(name, description || null, space_id, photo_url);
+        return { id: result.lastInsertRowid, photo_url };
+    });
+
+    // PUT Furniture
+    fastify.put('/api/furnitures/:id', async (req, reply) => {
+        const { id } = (req.params as { id: string });
+        const parts = req.parts();
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined;
+
+        // Get current furniture to preserve photo if not updated
+        const currentFurniture = db.prepare('SELECT photo_url FROM furnitures WHERE id = ?').get(id) as { photo_url: string };
+        if (!currentFurniture) return reply.status(404).send({ error: 'Mueble no encontrado' });
+        photo_url = currentFurniture.photo_url;
+
+        for await (const part of parts) {
+            if (part.type === 'file') {
+                photo_url = await saveImage(part);
+            } else {
+                if (part.fieldname === 'name') name = (part.value as string);
+                if (part.fieldname === 'description') description = (part.value as string);
+                if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
+            }
+        }
+
+        const updates: string[] = [];
+        const values: any[] = [];
+
+        if (name) { updates.push('name = ?'); values.push(name); }
+        if (description !== undefined) { updates.push('description = ?'); values.push(description || null); }
+        if (space_id) { updates.push('space_id = ?'); values.push(space_id); }
+        if (photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
+
+        if (updates.length === 0) return { success: true, message: 'Nada que actualizar' };
+
+        values.push(id);
+        db.prepare(`UPDATE furnitures SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+
+        return { success: true };
+    });
+
+    // DELETE Furniture
+    fastify.delete('/api/furnitures/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        const { id } = req.params;
+        // Check for containers first
+        const containers = db.prepare('SELECT count(*) as count FROM containers WHERE furniture_id = ?').get(id) as { count: number };
+        if (containers.count > 0) return reply.status(400).send({ error: 'El mueble tiene contenedores asignados' });
+
+        const result = db.prepare('DELETE FROM furnitures WHERE id = ?').run(id);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Mueble no encontrado' });
+        return { success: true };
+    });
+
+    // POST Container (Multipart) - v0.8: Now supports furniture_id
+    fastify.post('/api/containers', async (req, reply) => {
+        const parts = req.parts();
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, furniture_id: number | undefined, photo_url: string | null | undefined;
+
+        for await (const part of parts) {
+            if (part.type === 'file') {
+                photo_url = await saveImage(part);
+            } else {
+                if (part.fieldname === 'name') name = (part.value as string);
+                if (part.fieldname === 'description') description = (part.value as string);
+                if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
+                if (part.fieldname === 'furniture_id') furniture_id = parseInt(part.value as string);
+            }
+        }
+
+        if (!name) return reply.status(400).send({ error: 'Falta el nombre' });
+
+        const result = db.prepare('INSERT INTO containers (name, description, space_id, furniture_id, photo_url) VALUES (?, ?, ?, ?, ?)').run(name, description || null, space_id || null, furniture_id || null, photo_url);
         return { id: result.lastInsertRowid, photo_url };
     });
 
@@ -250,7 +360,7 @@ export default async function routes(fastify: FastifyInstance) {
     fastify.put('/api/containers/:id', async (req, reply) => {
         const { id } = (req.params as { id: string });
         const parts = req.parts();
-        let name: string | undefined, description: string | undefined, space_id: number | undefined, photo_url: string | null | undefined;
+        let name: string | undefined, description: string | undefined, space_id: number | undefined, furniture_id: number | undefined, photo_url: string | null | undefined;
 
         // Get current container to preserve photo if not updated
         const currentContainer = db.prepare('SELECT photo_url FROM containers WHERE id = ?').get(id) as { photo_url: string };
@@ -264,6 +374,7 @@ export default async function routes(fastify: FastifyInstance) {
                 if (part.fieldname === 'name') name = (part.value as string);
                 if (part.fieldname === 'description') description = (part.value as string);
                 if (part.fieldname === 'space_id') space_id = parseInt(part.value as string);
+                if (part.fieldname === 'furniture_id') furniture_id = parseInt(part.value as string);
             }
         }
 
@@ -272,7 +383,8 @@ export default async function routes(fastify: FastifyInstance) {
 
         if (name) { updates.push('name = ?'); values.push(name); }
         if (description !== undefined) { updates.push('description = ?'); values.push(description || null); }
-        if (space_id) { updates.push('space_id = ?'); values.push(space_id); }
+        if (space_id !== undefined) { updates.push('space_id = ?'); values.push(space_id || null); }
+        if (furniture_id !== undefined) { updates.push('furniture_id = ?'); values.push(furniture_id || null); }
         if (photo_url) { updates.push('photo_url = ?'); values.push(photo_url); }
 
         if (updates.length === 0) return { success: true, message: 'Nada que actualizar' };
@@ -725,7 +837,7 @@ export default async function routes(fastify: FastifyInstance) {
     // Export all data
     fastify.get('/api/backup/export', async () => {
         const tables = [
-            'spaces', 'containers', 'items', 'item_photos',
+            'spaces', 'furnitures', 'containers', 'items', 'item_photos',
             'floor_plan', 'room_layouts', 'container_positions',
             'categories', 'people'
         ];
@@ -748,7 +860,7 @@ export default async function routes(fastify: FastifyInstance) {
 
         const tables = [
             'item_photos', 'items', 'container_positions', 'containers',
-            'room_layouts', 'spaces', 'floor_plan', 'categories', 'people'
+            'furnitures', 'room_layouts', 'spaces', 'floor_plan', 'categories', 'people'
         ];
 
         const importTransaction = db.transaction((data: Record<string, any[]>) => {
@@ -773,7 +885,7 @@ export default async function routes(fastify: FastifyInstance) {
 
             // Order matters for FK
             const insertOrder = [
-                'categories', 'people', 'spaces', 'room_layouts',
+                'categories', 'people', 'spaces', 'furnitures', 'room_layouts',
                 'containers', 'container_positions', 'items',
                 'item_photos', 'floor_plan'
             ];

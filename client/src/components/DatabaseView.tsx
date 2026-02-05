@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Briefcase, FileText, ArrowRight } from 'lucide-react';
-import type { Space, Container, Item } from '../services/api';
-import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems } from '../services/api';
+import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Briefcase, FileText, ArrowRight, Armchair } from 'lucide-react';
+import type { Space, Container, Item, Furniture } from '../services/api';
+import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems, createFurniture, updateFurniture, deleteFurniture } from '../services/api';
 
 import ItemMetadataEditor from './ItemMetadataEditor';
 import ItemDetail from './ItemDetail';
 import AddItemForm from './AddItemForm';
 
-type EntityType = 'spaces' | 'containers' | 'items';
+type EntityType = 'spaces' | 'furnitures' | 'containers' | 'items';
 
 interface EditModalProps {
     type: EntityType;
@@ -35,6 +35,16 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                     await createSpace({ name, description, parent_id: parentId || null });
                 } else {
                     await updateSpace(entity.id, { name, description, parent_id: parentId || null });
+                }
+            } else if (type === 'furnitures') {
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('description', description);
+                if (parentId) formData.append('space_id', parentId.toString());
+                if (isNew) {
+                    await createFurniture(formData);
+                } else {
+                    await updateFurniture(entity.id, formData);
                 }
             } else if (type === 'containers') {
                 const formData = new FormData();
@@ -77,7 +87,7 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
             <div className="card" style={{ width: '100%', maxWidth: '450px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                     <h3 style={{ margin: 0 }}>
-                        {isNew ? 'Nuevo' : 'Editar'} {type === 'spaces' ? 'Espacio' : type === 'containers' ? 'Contenedor' : 'Objeto'}
+                        {isNew ? 'Nuevo' : 'Editar'} {type === 'spaces' ? 'Espacio' : type === 'furnitures' ? 'Mueble' : type === 'containers' ? 'Contenedor' : 'Objeto'}
                     </h3>
                     <button onClick={onClose} style={{ background: 'transparent', padding: '5px' }}>
                         <X size={20} />
@@ -107,15 +117,39 @@ const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers,
                         />
                     </div>
 
-                    {type === 'containers' && (
+                    {type === 'furnitures' && (
                         <div>
-                            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Espacio (opcional)</label>
+                            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Espacio</label>
                             <select value={parentId} onChange={(e) => setParentId(e.target.value)} style={{ width: '100%' }}>
-                                <option value="">Sin espacio asignado</option>
+                                <option value="">Selecciona espacio...</option>
                                 {spaces.map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
                             </select>
+                        </div>
+                    )}
+
+                    {type === 'containers' && (
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.9em' }}>Ubicación (Espacio o Mueble)</label>
+                            <select value={parentId} onChange={(e) => setParentId(e.target.value)} style={{ width: '100%' }}>
+                                <option value="">Sin ubicación asignada</option>
+                                <optgroup label="Espacios (Directamente en el suelo)">
+                                    {spaces.map(s => (
+                                        <option key={`space-${s.id}`} value={s.id}>{s.name}</option>
+                                    ))}
+                                </optgroup>
+                                {spaces.map(s => s.furnitures && s.furnitures.length > 0 && (
+                                    <optgroup key={`group-${s.id}`} label={`Muebles en ${s.name}`}>
+                                        {s.furnitures.map(f => (
+                                            <option key={`furniture-${f.id}`} value={`furniture-${f.id}`}>{f.name}</option>
+                                        ))}
+                                    </optgroup>
+                                ))}
+                            </select>
+                            <div style={{ fontSize: '0.8em', opacity: 0.7, marginTop: '4px' }}>
+                                * Selecciona un espacio para dejarlo en el suelo, o un mueble específico.
+                            </div>
                         </div>
                     )}
 
@@ -153,11 +187,12 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [editingEntity, setEditingEntity] = useState<{ type: EntityType; entity: any } | null>(null);
-    const [showAddForm, setShowAddForm] = useState<'space' | 'container' | 'item' | null>(null);
+    const [showAddForm, setShowAddForm] = useState<'space' | 'furniture' | 'container' | 'item' | null>(null);
 
     // Drill-down state
     const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
-    const [selectedContainer, setSelectedContainer] = useState<(Container & { space_name?: string }) | null>(null);
+    const [selectedFurniture, setSelectedFurniture] = useState<(Furniture & { space_name?: string }) | null>(null);
+    const [selectedContainer, setSelectedContainer] = useState<(Container & { space_name?: string; furniture_name?: string }) | null>(null);
     const [selectedItem, setSelectedItem] = useState<(Item & { container_name?: string }) | null>(null);
 
     // Bulk selection state
@@ -198,12 +233,16 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
     useEffect(() => {
         setSelectedIds([]);
         setIsSelectionMode(false);
-    }, [activeTab, selectedSpace, selectedContainer]);
+    }, [activeTab, selectedSpace, selectedFurniture, selectedContainer]);
 
     useEffect(() => { loadData(); }, []);
 
     // Flatten containers and items for easy access
-    const allContainers = inventory.flatMap(s => s.containers.map(c => ({ ...c, space_name: s.name })));
+    const allFurnitures = inventory.flatMap(s => s.furnitures ? s.furnitures.map(f => ({ ...f, space_name: s.name })) : []);
+    const allContainers = [
+        ...inventory.flatMap(s => s.containers.map(c => ({ ...c, space_name: s.name, furniture_name: undefined }))),
+        ...allFurnitures.flatMap(f => f.containers.map(c => ({ ...c, space_name: f.space_name, furniture_name: f.name })))
+    ];
     const allItems = allContainers.flatMap(c => c.items.map(i => ({ ...i, container_name: c.name })));
 
     // Filter based on search
@@ -211,9 +250,14 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+    const filteredFurnitures = allFurnitures.filter(f =>
+        f.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        f.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
     const filteredContainers = allContainers.filter(c =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.description?.toLowerCase().includes(searchQuery.toLowerCase())
+        c.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.furniture_name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
     const filteredItems = allItems.filter(i =>
         i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -224,11 +268,13 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         if (!confirm('¿Eliminar este elemento?')) return;
         try {
             if (type === 'spaces') await deleteSpace(id);
+            else if (type === 'furnitures') await deleteFurniture(id);
             else if (type === 'containers') await deleteContainer(id);
             else await deleteItem(id);
             loadData();
             // Clear selections if deleted
             if (type === 'spaces') setSelectedSpace(null);
+            if (type === 'furnitures') setSelectedFurniture(null);
             if (type === 'containers') setSelectedContainer(null);
             if (type === 'items') setSelectedItem(null);
         } catch (err: any) {
@@ -301,6 +347,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
 
     const tabs: { key: EntityType; label: string; icon: React.ReactNode }[] = [
         { key: 'spaces', label: 'Espacios', icon: <Home size={18} /> },
+        { key: 'furnitures', label: 'Muebles', icon: <Armchair size={18} /> },
         { key: 'containers', label: 'Contenedores', icon: <Box size={18} /> },
         { key: 'items', label: 'Objetos', icon: <Package size={18} /> },
     ];
@@ -334,11 +381,12 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
             <div style={{
                 width: '40px', height: '40px', borderRadius: '10px',
                 background: type === 'spaces' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' :
-                    type === 'containers' ? 'linear-gradient(135deg, #f59e0b, #ef4444)' :
-                        'linear-gradient(135deg, #10b981, #3b82f6)',
+                    type === 'furnitures' ? 'linear-gradient(135deg, #8b5cf6, #ec4899)' :
+                        type === 'containers' ? 'linear-gradient(135deg, #f59e0b, #ef4444)' :
+                            'linear-gradient(135deg, #10b981, #3b82f6)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-                {type === 'spaces' ? <Home size={20} /> : type === 'containers' ? <Box size={20} /> : <Package size={20} />}
+                {type === 'spaces' ? <Home size={20} /> : type === 'furnitures' ? <Armchair size={20} /> : type === 'containers' ? <Box size={20} /> : <Package size={20} />}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -386,7 +434,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         </div>
     );
 
-    // Render selected space's containers
+    // Render selected space's details (Furnitures + Loose Containers)
     const renderSpaceDetails = (space: Space) => (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
@@ -409,18 +457,43 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                 <p style={{ opacity: 0.7, marginBottom: '1rem' }}>{space.description}</p>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h4 style={{ margin: 0 }}>📦 Contenedores ({space.containers.length})</h4>
+            {/* Furnitures Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', marginTop: '1.5rem' }}>
+                <h4 style={{ margin: 0 }}>🪑 Muebles ({space.furnitures?.length || 0})</h4>
+                <button
+                    onClick={() => setShowAddForm('furniture')}
+                    style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <Plus size={16} /> Añadir Mueble
+                </button>
+            </div>
+
+            {space.furnitures && space.furnitures.length > 0 ? (
+                space.furnitures.map(furniture =>
+                    renderClickableRow('furnitures', { ...furniture, space_name: space.name },
+                        () => setSelectedFurniture({ ...furniture, space_name: space.name }),
+                        furniture.containers.length
+                    )
+                )
+            ) : (
+                <p style={{ textAlign: 'center', opacity: 0.5, padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                    No hay muebles. Puedes añadir estanterías, armarios, mesas...
+                </p>
+            )}
+
+            {/* Loose Containers Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', marginTop: '2rem' }}>
+                <h4 style={{ margin: 0 }}>📦 Contenedores Sueltos ({space.containers.length})</h4>
                 <button
                     onClick={() => setShowAddForm('container')}
                     style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                    <Plus size={16} /> Añadir
+                    <Plus size={16} /> Añadir Contenedor
                 </button>
             </div>
 
             {space.containers.length === 0 ? (
-                <p style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>No hay contenedores en este espacio</p>
+                <p style={{ textAlign: 'center', opacity: 0.5, padding: '1rem' }}>No hay contenedores sueltos.</p>
             ) : (
                 space.containers.map(container =>
                     renderClickableRow('containers', { ...container, space_name: space.name },
@@ -432,15 +505,61 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         </div>
     );
 
+    // Render selected furniture details
+    const renderFurnitureDetails = (furniture: Furniture & { space_name?: string }) => (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+                <button
+                    onClick={() => setSelectedFurniture(null)}
+                    style={{ background: 'transparent', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <ArrowLeft size={20} /> Volver a {furniture.space_name || 'Espacio'}
+                </button>
+                <h3 style={{ margin: 0, flex: 1 }}>🪑 {furniture.name}</h3>
+                <button
+                    onClick={() => setEditingEntity({ type: 'furnitures', entity: furniture })}
+                    style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px' }}
+                >
+                    <PenLine size={16} />
+                </button>
+            </div>
+
+            {furniture.description && (
+                <p style={{ opacity: 0.7, marginBottom: '1rem' }}>{furniture.description}</p>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h4 style={{ margin: 0 }}>📦 Contenedores ({furniture.containers.length})</h4>
+                <button
+                    onClick={() => setShowAddForm('container')}
+                    style={{ padding: '8px 12px', background: 'var(--accent)', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                    <Plus size={16} /> Añadir Contenedor
+                </button>
+            </div>
+
+            {furniture.containers.length === 0 ? (
+                <p style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>Este mueble está vacío.</p>
+            ) : (
+                furniture.containers.map(container =>
+                    renderClickableRow('containers', { ...container, space_name: furniture.space_name, furniture_name: furniture.name },
+                        () => setSelectedContainer({ ...container, space_name: furniture.space_name, furniture_name: furniture.name }),
+                        container.items.length
+                    )
+                )
+            )}
+        </div>
+    );
+
     // Render selected container's items
-    const renderContainerDetails = (container: Container & { space_name?: string }) => (
+    const renderContainerDetails = (container: Container & { space_name?: string; furniture_name?: string }) => (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
                 <button
                     onClick={() => setSelectedContainer(null)}
                     style={{ background: 'transparent', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
-                    <ArrowLeft size={20} /> Volver
+                    <ArrowLeft size={20} /> Volver a {container.furniture_name || container.space_name || 'Atrás'}
                 </button>
                 <h3 style={{ margin: 0, flex: 1 }}>📦 {container.name}</h3>
                 <button
@@ -488,13 +607,16 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
             <h2 style={{ marginBottom: '1rem' }}>📦 Base de Datos</h2>
 
             {/* If viewing a specific space */}
-            {selectedSpace && !selectedContainer && renderSpaceDetails(selectedSpace)}
+            {selectedSpace && !selectedFurniture && !selectedContainer && renderSpaceDetails(selectedSpace)}
+
+            {/* If viewing a specific furniture */}
+            {selectedFurniture && !selectedContainer && renderFurnitureDetails(selectedFurniture)}
 
             {/* If viewing a specific container */}
             {selectedContainer && renderContainerDetails(selectedContainer)}
 
             {/* Main list view */}
-            {!selectedSpace && !selectedContainer && (
+            {!selectedSpace && !selectedFurniture && !selectedContainer && (
                 <>
                     {/* Search */}
                     <div style={{ marginBottom: '1rem', position: 'relative' }}>
@@ -524,7 +646,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                                 {tab.icon}
                                 {tab.label}
                                 <span style={{ opacity: 0.7, fontSize: '0.85em' }}>
-                                    ({tab.key === 'spaces' ? filteredSpaces.length : tab.key === 'containers' ? filteredContainers.length : filteredItems.length})
+                                    ({tab.key === 'spaces' ? filteredSpaces.length : tab.key === 'furnitures' ? filteredFurnitures.length : tab.key === 'containers' ? filteredContainers.length : filteredItems.length})
                                 </span>
                             </button>
                         ))}
@@ -560,7 +682,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
 
                     {/* Add button */}
                     <button
-                        onClick={() => setShowAddForm(activeTab === 'spaces' ? 'space' : activeTab === 'containers' ? 'container' : 'item')}
+                        onClick={() => setShowAddForm(activeTab === 'spaces' ? 'space' : activeTab === 'furnitures' ? 'furniture' : activeTab === 'containers' ? 'container' : 'item')}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '6px',
                             padding: '10px 16px', marginBottom: '1rem',
@@ -568,7 +690,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                         }}
                     >
                         <Plus size={18} />
-                        Añadir {activeTab === 'spaces' ? 'Espacio' : activeTab === 'containers' ? 'Contenedor' : 'Objeto'}
+                        Añadir {activeTab === 'spaces' ? 'Espacio' : activeTab === 'furnitures' ? 'Mueble' : activeTab === 'containers' ? 'Contenedor' : 'Objeto'}
                     </button>
 
                     {/* Content */}
@@ -577,20 +699,33 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                     ) : (
                         <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                             {activeTab === 'spaces' && filteredSpaces.map(space =>
-                                renderClickableRow('spaces', space, () => setSelectedSpace(space), space.containers.length)
+                                renderClickableRow('spaces', space, () => setSelectedSpace(space), (space.furnitures?.length || 0) + space.containers.length)
                             )}
+
+                            {activeTab === 'furnitures' && filteredFurnitures.map(furniture =>
+                                renderClickableRow('furnitures', furniture,
+                                    () => setSelectedFurniture({ ...furniture, space_name: furniture.space_name }),
+                                    furniture.containers.length
+                                )
+                            )}
+
                             {activeTab === 'containers' && filteredContainers.map(container =>
-                                renderClickableRow('containers', container, () => setSelectedContainer(container), container.items.length)
+                                renderClickableRow('containers', container,
+                                    () => setSelectedContainer(container),
+                                    container.items.length
+                                )
                             )}
+
                             {activeTab === 'items' && filteredItems.map(item =>
                                 renderClickableRow('items', item, () => setSelectedItem(item))
                             )}
 
                             {((activeTab === 'spaces' && filteredSpaces.length === 0) ||
+                                (activeTab === 'furnitures' && filteredFurnitures.length === 0) ||
                                 (activeTab === 'containers' && filteredContainers.length === 0) ||
                                 (activeTab === 'items' && filteredItems.length === 0)) && (
                                     <p style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
-                                        No hay {activeTab === 'spaces' ? 'espacios' : activeTab === 'containers' ? 'contenedores' : 'objetos'}
+                                        No hay {activeTab === 'spaces' ? 'espacios' : activeTab === 'furnitures' ? 'muebles' : activeTab === 'containers' ? 'contenedores' : 'objetos'}
                                     </p>
                                 )}
                         </div>

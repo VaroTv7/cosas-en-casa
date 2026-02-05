@@ -22,14 +22,26 @@ export const initDb = () => {
       FOREIGN KEY(parent_id) REFERENCES spaces(id)
     );
 
-    CREATE TABLE IF NOT EXISTS containers (
+    -- v0.8: Furnitures (muebles) - between spaces and containers
+    CREATE TABLE IF NOT EXISTS furnitures (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       description TEXT,
       space_id INTEGER,
       photo_url TEXT,
-      qr_code TEXT,
       FOREIGN KEY(space_id) REFERENCES spaces(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS containers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      space_id INTEGER,
+      furniture_id INTEGER,
+      photo_url TEXT,
+      qr_code TEXT,
+      FOREIGN KEY(space_id) REFERENCES spaces(id),
+      FOREIGN KEY(furniture_id) REFERENCES furnitures(id)
     );
 
     CREATE TABLE IF NOT EXISTS items (
@@ -105,6 +117,11 @@ export const initDb = () => {
 
   try {
     db.exec(`ALTER TABLE container_positions ADD COLUMN height INTEGER DEFAULT 60`);
+  } catch (e) { /* Column already exists */ }
+
+  // v0.8: Furniture support - add furniture_id to containers
+  try {
+    db.exec(`ALTER TABLE containers ADD COLUMN furniture_id INTEGER REFERENCES furnitures(id)`);
   } catch (e) { /* Column already exists */ }
 
   // v0.4: Categories table

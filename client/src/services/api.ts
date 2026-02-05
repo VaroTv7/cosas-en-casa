@@ -9,6 +9,18 @@ export interface Space {
     name: string;
     description?: string;
     parent_id?: number;
+    furnitures: Furniture[];  // v0.8: Muebles dentro del espacio
+    containers: Container[];  // Contenedores sueltos (sin mueble asignado)
+}
+
+// v0.8: Furniture (mueble) - between spaces and containers
+export interface Furniture {
+    id: number;
+    name: string;
+    description?: string;
+    space_id?: number;
+    space_name?: string;  // From JOIN
+    photo_url?: string;
     containers: Container[];
 }
 
@@ -17,6 +29,7 @@ export interface Container {
     name: string;
     description?: string;
     space_id?: number;
+    furniture_id?: number;  // v0.8: Can be in a furniture
     photo_url?: string;
     items: Item[];
 }
@@ -156,6 +169,32 @@ export const bulkMoveItems = async (itemIds: number[], targetContainerId: number
 
 export const bulkDeleteItems = async (itemIds: number[]) => {
     const response = await api.post('/items/bulk-delete', { itemIds });
+    return response.data;
+};
+
+// ==================== v0.8 Furnitures API ====================
+
+export const getFurnitures = async () => {
+    const response = await api.get<Furniture[]>('/furnitures');
+    return response.data;
+};
+
+export const createFurniture = async (formData: FormData) => {
+    const response = await api.post('/furnitures', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+};
+
+export const updateFurniture = async (id: number, formData: FormData) => {
+    const response = await api.put(`/furnitures/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+};
+
+export const deleteFurniture = async (id: number) => {
+    const response = await api.delete(`/furnitures/${id}`);
     return response.data;
 };
 

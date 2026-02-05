@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Box, Package, Camera, ArrowLeft, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Home, Box, Package, Camera, ArrowLeft, Settings, ChevronDown, ChevronUp, Armchair } from 'lucide-react';
 import type { Space, Category } from '../services/api';
-import { createSpace, createContainer, createItem, getInventory, getCategories } from '../services/api';
+import { createSpace, createContainer, createItem, getInventory, getCategories, createFurniture } from '../services/api';
 import CategoryManager from './CategoryManager';
 
 interface Props {
@@ -9,7 +9,7 @@ interface Props {
     initialMode?: Mode;
 }
 
-type Mode = 'menu' | 'space' | 'container' | 'item';
+type Mode = 'menu' | 'space' | 'furniture' | 'container' | 'item';
 
 const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
     const [mode, setMode] = useState<Mode>(initialMode);
@@ -24,6 +24,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
     const [description, setDescription] = useState('');
     const [quantity, setQuantity] = useState(1);
     const [selectedSpaceId, setSelectedSpaceId] = useState<number | string>('');
+    const [selectedLocation, setSelectedLocation] = useState<string>(''); // For container: 'space-X' or 'furniture-Y'
     const [selectedContainerId, setSelectedContainerId] = useState<number | string>('');
     const [categoryId, setCategoryId] = useState<number | string>('');
     const [photo, setPhoto] = useState<File | null>(null);
@@ -62,6 +63,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
         setDescription('');
         setQuantity(1);
         setSelectedSpaceId('');
+        setSelectedLocation('');
         setSelectedContainerId('');
         setCategoryId('');
         setCategoryId('');
@@ -91,15 +93,44 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
         }
     };
 
-    const handleCreateContainer = async (e: React.FormEvent) => {
+    const handleCreateFurniture = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedSpaceId) return alert('Selecciona un espacio');
         setLoading(true);
+        if (!selectedSpaceId) return alert('Selecciona un espacio');
         try {
             const formData = new FormData();
             formData.append('name', name);
             formData.append('description', description);
             formData.append('space_id', String(selectedSpaceId));
+            if (photo) formData.append('photo', photo);
+
+            await createFurniture(formData);
+            alert('¡Mueble creado!');
+            onSuccess();
+            resetForm();
+        } catch (error) {
+            alert('Error al crear mueble');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateContainer = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedLocation) return alert('Selecciona una ubicación');
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('description', description);
+
+            const [type, id] = selectedLocation.split('-');
+            if (type === 'space') {
+                formData.append('space_id', id);
+            } else if (type === 'furniture') {
+                formData.append('furniture_id', id);
+            }
+
             if (photo) formData.append('photo', photo);
 
             await createContainer(formData);
@@ -163,6 +194,17 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
                     </button>
 
                     <button
+                        onClick={() => setMode('furniture')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '1.2rem', background: '#8b5cf6' }}
+                    >
+                        <Armchair size={24} />
+                        <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontWeight: 'bold' }}>Añadir Mueble</div>
+                            <div style={{ fontSize: '0.8em', opacity: 0.8 }}>Estantería, armario, mesa...</div>
+                        </div>
+                    </button>
+
+                    <button
                         onClick={() => setMode('container')}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '1.2rem', background: 'var(--primary)' }}
                     >
@@ -217,6 +259,37 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
                 </form>
             )}
 
+            {mode === 'furniture' && (
+                <form onSubmit={handleCreateFurniture} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Armchair size={24} color="#8b5cf6" />
+                        <h2 style={{ margin: 0 }}>Nuevo Mueble</h2>
+                    </div>
+
+                    <div className="input-group">
+                        <label>¿Dónde está?</label>
+                        <select value={selectedSpaceId} onChange={e => setSelectedSpaceId(e.target.value)} required>
+                            <option value="">Selecciona espacio...</option>
+                            {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div className="input-group">
+                        <label>Nombre del mueble</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Ej. Estantería Kallax, Armario Ropa..." />
+                    </div>
+
+                    <div className="input-group">
+                        <label>Descripción</label>
+                        <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Notas sobre este mueble..." />
+                    </div>
+
+                    <button type="submit" disabled={loading} style={{ background: '#8b5cf6' }}>
+                        {loading ? 'Guardando...' : 'Crear Mueble'}
+                    </button>
+                </form>
+            )}
+
             {mode === 'container' && (
                 <form onSubmit={handleCreateContainer} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -226,9 +299,20 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
 
                     <div className="input-group">
                         <label>¿Dónde está?</label>
-                        <select value={selectedSpaceId} onChange={e => setSelectedSpaceId(e.target.value)} required>
-                            <option value="">Selecciona espacio...</option>
-                            {spaces.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        <select value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} required>
+                            <option value="">Selecciona ubicación...</option>
+                            <optgroup label="Espacios (Suelo)">
+                                {spaces.map(s => (
+                                    <option key={`space-${s.id}`} value={`space-${s.id}`}>{s.name}</option>
+                                ))}
+                            </optgroup>
+                            {spaces.map(s => s.furnitures && s.furnitures.length > 0 && (
+                                <optgroup key={`group-${s.id}`} label={`Muebles en ${s.name}`}>
+                                    {s.furnitures.map(f => (
+                                        <option key={`furniture-${f.id}`} value={`furniture-${f.id}`}>{f.name}</option>
+                                    ))}
+                                </optgroup>
+                            ))}
                         </select>
                     </div>
 
@@ -269,11 +353,24 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
                         >
                             <option value="">Selecciona contenedor...</option>
                             {spaces.map(s => (
-                                <optgroup key={s.id} label={s.name}>
-                                    {s.containers.map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                <React.Fragment key={s.id}>
+                                    {/* Muebles */}
+                                    {s.furnitures?.map(f => (
+                                        <optgroup key={`f-${f.id}`} label={`${f.name} (${s.name})`}>
+                                            {f.containers.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </optgroup>
                                     ))}
-                                </optgroup>
+                                    {/* Contenedores en Espacio */}
+                                    {s.containers.length > 0 && (
+                                        <optgroup key={`s-${s.id}`} label={`${s.name} (Suelo)`}>
+                                            {s.containers.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </select>
                     </div>
