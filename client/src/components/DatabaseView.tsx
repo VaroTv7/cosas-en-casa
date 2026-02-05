@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Briefcase, FileText, ArrowRight, Armchair } from 'lucide-react';
-import type { Space, Container, Item, Furniture } from '../services/api';
-import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems, createFurniture, updateFurniture, deleteFurniture } from '../services/api';
+import { useLocation } from 'react-router-dom';
+import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Briefcase, FileText, ArrowRight, Armchair, AlertTriangle, CheckCircle } from 'lucide-react';
+import type { Space, Container, Item, Furniture, OrphansResponse } from '../services/api';
+import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems, createFurniture, updateFurniture, deleteFurniture, getOrphans } from '../services/api';
 
 import ItemMetadataEditor from './ItemMetadataEditor';
 import ItemDetail from './ItemDetail';
 import AddItemForm from './AddItemForm';
 
-type EntityType = 'spaces' | 'furnitures' | 'containers' | 'items';
+type EntityType = 'spaces' | 'furnitures' | 'containers' | 'items' | 'limbo';
 
 interface EditModalProps {
     type: EntityType;
@@ -223,7 +224,9 @@ interface DatabaseViewProps {
 }
 
 export const DatabaseView: React.FC<DatabaseViewProps> = () => {
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState<EntityType>('spaces');
+    const [orphansData, setOrphansData] = useState<OrphansResponse>({ items: [], containers: [], furnitures: [] });
     const [inventory, setInventory] = useState<Space[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -276,7 +279,27 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         setIsSelectionMode(false);
     }, [activeTab, selectedSpace, selectedFurniture, selectedContainer]);
 
+
     useEffect(() => { loadData(); }, []);
+
+    // Handle URL params for Limbo
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get('tab') === 'limbo') {
+            setActiveTab('limbo');
+        }
+    }, [location.search]);
+
+    // Fetch orphans when in Limbo
+    useEffect(() => {
+        if (activeTab === 'limbo') {
+            setLoading(true);
+            getOrphans().then(data => {
+                setOrphansData(data);
+            }).catch(e => console.error(e))
+                .finally(() => setLoading(false));
+        }
+    }, [activeTab]);
 
     // Flatten containers and items for easy access
     const allFurnitures = inventory.flatMap(s => s.furnitures ? s.furnitures.map(f => ({ ...f, space_name: s.name })) : []);
@@ -391,6 +414,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         { key: 'furnitures', label: 'Muebles', icon: <Armchair size={18} /> },
         { key: 'containers', label: 'Contenedores', icon: <Box size={18} /> },
         { key: 'items', label: 'Objetos', icon: <Package size={18} /> },
+        { key: 'limbo', label: 'Limbo (Recuperación)', icon: <AlertTriangle size={18} /> },
     ];
 
     // Clickable row that navigates to children
@@ -765,6 +789,38 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
 
                             {activeTab === 'items' && filteredItems.map(item =>
                                 renderClickableRow('items', item, () => setSelectedItem(item))
+                            )}
+
+                            {activeTab === 'limbo' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                    {(orphansData.items.length > 0 || orphansData.containers.length > 0 || orphansData.furnitures.length > 0) ? (
+                                        <>
+                                            {orphansData.items.length > 0 && (
+                                                <div>
+                                                    <h3 style={{ color: 'var(--error)', marginBottom: '10px' }}>⚠️ Objetos Perdidos ({orphansData.items.length})</h3>
+                                                    {orphansData.items.map(item => renderClickableRow('items', item, () => setSelectedItem(item)))}
+                                                </div>
+                                            )}
+                                            {orphansData.containers.length > 0 && (
+                                                <div>
+                                                    <h3 style={{ color: 'var(--error)', marginBottom: '10px' }}>⚠️ Contenedores Perdidos ({orphansData.containers.length})</h3>
+                                                    {orphansData.containers.map(c => renderClickableRow('containers', c, () => setSelectedContainer(c), c.items?.length))}
+                                                </div>
+                                            )}
+                                            {orphansData.furnitures.length > 0 && (
+                                                <div>
+                                                    <h3 style={{ color: 'var(--error)', marginBottom: '10px' }}>⚠️ Muebles Perdidos ({orphansData.furnitures.length})</h3>
+                                                    {orphansData.furnitures.map(f => renderClickableRow('furnitures', f, () => setSelectedFurniture(f), f.containers?.length))}
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div style={{ textAlign: 'center', opacity: 0.5, padding: '2rem' }}>
+                                            <CheckCircle size={48} style={{ marginBottom: '10px', color: '#10b981' }} />
+                                            <p>¡El Limbo está vacío! Todo está en su sitio.</p>
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {((activeTab === 'spaces' && filteredSpaces.length === 0) ||

@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, UserMinus, CheckCircle, Package, Search, X, MapPin, Box, Loader2, AlertTriangle, Coins } from 'lucide-react';
 import type { Space, Item, SearchResults, SearchResultItem, OrphansResponse } from '../services/api';
 import { searchGlobal, getOrphans } from '../services/api';
@@ -9,6 +10,7 @@ interface Props {
 }
 
 const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
+    const navigate = useNavigate();
     // Search state
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
@@ -273,11 +275,14 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
 
             {/* Orphans Alert */}
             {(orphans.items.length > 0 || orphans.containers.length > 0 || orphans.furnitures.length > 0) && (
-                <div style={{
-                    background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--error)',
-                    borderRadius: '12px', padding: '16px', marginBottom: '20px',
-                    display: 'flex', alignItems: 'center', gap: '12px'
-                }}>
+                <div
+                    onClick={() => navigate('/database?tab=limbo')}
+                    style={{
+                        background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--error)',
+                        borderRadius: '12px', padding: '16px', marginBottom: '20px',
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        cursor: 'pointer'
+                    }}>
                     <AlertTriangle color="var(--error)" size={24} />
                     <div style={{ flex: 1 }}>
                         <h3 style={{ margin: 0, color: 'var(--error)', fontSize: '1.1em' }}>⚠️ Objetos Perdidos (Limbo)</h3>
