@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ArrowLeft, Briefcase, FileText, ArrowRight, Armchair, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Home, Box, Package, PenLine, Trash2, Plus, Search, X, ChevronRight, ChevronDown, ArrowLeft, Briefcase, FileText, ArrowRight, Armchair, AlertTriangle, CheckCircle } from 'lucide-react';
 import type { Space, Container, Item, Furniture, OrphansResponse } from '../services/api';
 import { getInventory, updateSpace, deleteSpace, updateContainer, deleteContainer, deleteItem, createSpace, createContainer, bulkDeleteItems, bulkMoveItems, createFurniture, updateFurniture, deleteFurniture, getOrphans } from '../services/api';
 
@@ -18,6 +18,51 @@ interface EditModalProps {
     onClose: () => void;
     onSave: () => void;
 }
+
+
+interface CollapsibleGroupProps {
+    title: string;
+    count: number;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+}
+
+const CollapsibleGroup: React.FC<CollapsibleGroupProps> = ({ title, count, children, defaultOpen = false }) => {
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+
+    useEffect(() => {
+        if (defaultOpen) setIsOpen(true);
+    }, [defaultOpen]);
+
+    return (
+        <div style={{ marginBottom: '8px' }}>
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 16px', background: 'var(--glass-bg)', border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '10px', cursor: 'pointer', transition: 'background 0.2s'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', opacity: 0.9 }}>
+                    {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    {title}
+                </div>
+                <span style={{
+                    background: 'var(--primary)', padding: '2px 8px', borderRadius: '12px',
+                    fontSize: '0.8em', opacity: 0.8
+                }}>
+                    {count}
+                </span>
+            </button>
+            {isOpen && (
+                <div style={{ padding: '8px 0 8px 12px', animation: 'fadeIn 0.2s' }}>
+                    {children}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const EditModal: React.FC<EditModalProps> = ({ type, entity, spaces, containers, onClose, onSave }) => {
     const isNew = !entity?.id;
@@ -771,23 +816,62 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                                 renderClickableRow('spaces', space, () => setSelectedSpace(space), (space.furnitures?.length || 0) + space.containers.length)
                             )}
 
-                            {activeTab === 'furnitures' && filteredFurnitures.map(furniture =>
-                                renderClickableRow('furnitures', furniture,
-                                    () => setSelectedFurniture({ ...furniture, space_name: furniture.space_name }),
-                                    furniture.containers.length
-                                )
-                            )}
+                            {activeTab === 'furnitures' && (() => {
+                                const groups: Record<string, typeof filteredFurnitures> = {};
+                                filteredFurnitures.forEach(f => {
+                                    const key = f.space_name || 'Sin Espacio';
+                                    if (!groups[key]) groups[key] = [];
+                                    groups[key].push(f);
+                                });
+                                return Object.entries(groups).map(([spaceName, items]) => (
+                                    <CollapsibleGroup key={spaceName} title={`En ${spaceName}`} count={items.length} defaultOpen={!!searchQuery}>
+                                        {items.map(furniture =>
+                                            renderClickableRow('furnitures', furniture,
+                                                () => setSelectedFurniture({ ...furniture, space_name: furniture.space_name }),
+                                                furniture.containers.length
+                                            )
+                                        )}
+                                    </CollapsibleGroup>
+                                ));
+                            })()}
 
-                            {activeTab === 'containers' && filteredContainers.map(container =>
-                                renderClickableRow('containers', container,
-                                    () => setSelectedContainer(container),
-                                    container.items.length
-                                )
-                            )}
+                            {activeTab === 'containers' && (() => {
+                                const groups: Record<string, typeof filteredContainers> = {};
+                                filteredContainers.forEach(c => {
+                                    let key = 'Sin Ubicación';
+                                    if (c.furniture_name) key = `En Mueble: ${c.furniture_name} (${c.space_name})`;
+                                    else if (c.space_name) key = `En Espacio: ${c.space_name}`;
 
-                            {activeTab === 'items' && filteredItems.map(item =>
-                                renderClickableRow('items', item, () => setSelectedItem(item))
-                            )}
+                                    if (!groups[key]) groups[key] = [];
+                                    groups[key].push(c);
+                                });
+                                return Object.entries(groups).map(([groupName, items]) => (
+                                    <CollapsibleGroup key={groupName} title={groupName} count={items.length} defaultOpen={!!searchQuery}>
+                                        {items.map(container =>
+                                            renderClickableRow('containers', container,
+                                                () => setSelectedContainer(container),
+                                                container.items.length
+                                            )
+                                        )}
+                                    </CollapsibleGroup>
+                                ));
+                            })()}
+
+                            {activeTab === 'items' && (() => {
+                                const groups: Record<string, typeof filteredItems> = {};
+                                filteredItems.forEach(i => {
+                                    const key = i.container_name || 'Sin Contenedor';
+                                    if (!groups[key]) groups[key] = [];
+                                    groups[key].push(i);
+                                });
+                                return Object.entries(groups).map(([containerName, items]) => (
+                                    <CollapsibleGroup key={containerName} title={`En ${containerName}`} count={items.length} defaultOpen={!!searchQuery}>
+                                        {items.map(item =>
+                                            renderClickableRow('items', item, () => setSelectedItem(item))
+                                        )}
+                                    </CollapsibleGroup>
+                                ));
+                            })()}
 
                             {activeTab === 'limbo' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
