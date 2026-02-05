@@ -709,7 +709,13 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                                 {tab.icon}
                                 {tab.label}
                                 <span style={{ opacity: 0.7, fontSize: '0.85em' }}>
-                                    ({tab.key === 'spaces' ? filteredSpaces.length : tab.key === 'furnitures' ? filteredFurnitures.length : tab.key === 'containers' ? filteredContainers.length : filteredItems.length})
+                                    ({
+                                        tab.key === 'spaces' ? filteredSpaces.length :
+                                            tab.key === 'furnitures' ? filteredFurnitures.length :
+                                                tab.key === 'containers' ? filteredContainers.length :
+                                                    tab.key === 'items' ? filteredItems.length :
+                                                        (orphansData.items.length + orphansData.containers.length + orphansData.furnitures.length)
+                                    })
                                 </span>
                             </button>
                         ))}
