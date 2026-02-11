@@ -33,6 +33,7 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
         serial_number: item.serial_number || '',
         brand: item.brand || '',
         model: item.model || '',
+        barcode: item.barcode || '',
         condition: item.condition || 'buen_estado',
         // Purchase
         purchase_date: item.purchase_date || '',
@@ -145,6 +146,10 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
                         <Settings size={18} />
                     </button>
                 </div>
+            </div>
+            <div style={fieldGroup}>
+                <label style={labelStyle}>Código de Barras (EAN/UPC)</label>
+                <input type="text" value={formData.barcode} onChange={e => handleChange('barcode', e.target.value)} style={inputStyle} placeholder="Ej: 5026555424265" />
             </div>
             <div style={fieldGroup}>
                 <label style={labelStyle}>Número de serie</label>

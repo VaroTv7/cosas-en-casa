@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { Package, Box, Home, DollarSign, Tag, User, Book, Gamepad2, Laptop, ChevronRight, Shield, MapPin } from 'lucide-react';
 import type { Item, Container, Space, Category } from '../services/api';
-import { getItemFull, getInventory, getCategories } from '../services/api';
+import { getItemFull, getInventory, getCategories, getItemByBarcode } from '../services/api';
 
 interface ScanResult {
     type: 'item' | 'container' | 'space';
@@ -65,7 +65,13 @@ const ScannerView: React.FC<Props> = ({ onSelectItem }) => {
 
         const parsed = parseQRCode(code);
         if (!parsed) {
-            setError(`Código QR no reconocido: ${code}`);
+            // v0.9: If not a custom QR, try to find item by barcode
+            try {
+                const item = await getItemByBarcode(code);
+                setResult({ type: 'item', data: item });
+            } catch (err) {
+                setError(`No se reconoce como QR de la app ni como código de barras registrado: ${code}`);
+            }
             return;
         }
 
@@ -303,6 +309,14 @@ const ScannerView: React.FC<Props> = ({ onSelectItem }) => {
                     )}
                 </div>
 
+                {/* v0.9 Barcode Info */}
+                {item.barcode && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--glass-bg)', borderRadius: '8px', marginTop: '1rem', border: '1px solid var(--glass-border)' }}>
+                        <div style={{ fontSize: '0.8em', opacity: 0.7, textTransform: 'uppercase' }}>Código de barras:</div>
+                        <div style={{ fontWeight: 'bold', fontFamily: 'monospace' }}>{item.barcode}</div>
+                    </div>
+                )}
+
                 {onSelectItem && (
                     <button onClick={() => onSelectItem(item)} style={{ width: '100%', marginTop: '1rem', background: 'var(--primary)' }}>
                         Ver detalles completos
@@ -430,7 +444,7 @@ const ScannerView: React.FC<Props> = ({ onSelectItem }) => {
             {scanning && (
                 <>
                     <p style={{ fontSize: '0.85em', opacity: 0.7, marginBottom: '1rem' }}>
-                        Escanea un QR de objeto, contenedor o habitación para ver todos sus datos.
+                        Escanea un QR o el código de barras de un objeto (EAN/UPC) para ver todos sus datos.
                     </p>
                     <ScannerCore onScan={handleScan} />
                 </>
@@ -459,7 +473,14 @@ const ScannerCore: React.FC<{ onScan: (code: string) => void }> = ({ onScan }) =
     useEffect(() => {
         const scanner = new Html5QrcodeScanner(
             "qr-reader",
-            { fps: 10, qrbox: { width: 250, height: 250 } },
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                // v0.9: Support barcodes
+                formatsToSupport: [
+                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 // All formats (QR, EAN, UPC, Code39, etc)
+                ]
+            },
             false
         );
 

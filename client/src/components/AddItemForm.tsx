@@ -29,6 +29,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
     const [categoryId, setCategoryId] = useState<number | string>('');
     const [photo, setPhoto] = useState<File | null>(null);
     const [invoicePhoto, setInvoicePhoto] = useState<File | null>(null);
+    const [barcode, setBarcode] = useState('');
 
     // Advanced fields
     const [brand, setBrand] = useState('');
@@ -74,6 +75,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
         setSerialNumber('');
         setPurchaseDate('');
         setPurchasePrice('');
+        setBarcode('');
         setShowAdvanced(false);
         setMode('menu');
     };
@@ -165,6 +167,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
             if (serialNumber) formData.append('serial_number', serialNumber);
             if (purchaseDate) formData.append('purchase_date', purchaseDate);
             if (purchasePrice) formData.append('purchase_price', purchasePrice);
+            if (barcode) formData.append('barcode', barcode);
 
             await createItem(formData);
             alert('¡Objeto guardado!');
@@ -432,6 +435,10 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
                                     <label>Modelo</label>
                                     <input type="text" value={model} onChange={e => setModel(e.target.value)} placeholder="Ej: PS5" />
                                 </div>
+                            </div>
+                            <div className="input-group">
+                                <label>Código de Barras (EAN/UPC)</label>
+                                <input type="text" value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Ej: 5026555424265" />
                             </div>
                             <div className="input-group">
                                 <label>Número de Serie</label>

@@ -291,8 +291,8 @@ export default async function routes(fastify: FastifyInstance) {
                 warranty_months, warranty_end, condition, notes, invoice_photo_url,
                 book_author, book_publisher, book_year, book_pages, book_isbn, book_genre,
                 game_platform, game_developer, game_publisher, game_year, game_genre,
-                tech_specs, tech_manual_url
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                tech_specs, tech_manual_url, barcode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         const result = stmt.run(
             name, container_id,
@@ -315,7 +315,8 @@ export default async function routes(fastify: FastifyInstance) {
             fields.game_platform || null, fields.game_developer || null, fields.game_publisher || null,
             fields.game_year ? parseInt(fields.game_year) : null,
             fields.game_genre || null,
-            fields.tech_specs || null, fields.tech_manual_url || null
+            fields.tech_specs || null, fields.tech_manual_url || null,
+            fields.barcode || null
         );
         return { id: result.lastInsertRowid, photo_url };
     });
@@ -345,8 +346,9 @@ export default async function routes(fastify: FastifyInstance) {
                OR i.model LIKE ? 
                OR i.serial_number LIKE ?
                OR i.loaned_to LIKE ?
+               OR i.barcode = ?
             LIMIT 20
-        `).all(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+        `).all(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, q.trim());
 
         // Search containers
         const containers = db.prepare(`
@@ -576,6 +578,7 @@ export default async function routes(fastify: FastifyInstance) {
         addField('min_quantity', fields.min_quantity, parseInt);
         addField('loaned_to', fields.loaned_to);
         addField('loaned_at', fields.loaned_at);
+        addField('barcode', fields.barcode);
 
         // Book fields
         addField('book_author', fields.book_author);
@@ -680,6 +683,28 @@ export default async function routes(fastify: FastifyInstance) {
     });
 
     // --- Item Photos ---
+    // v0.9: GET Item by Barcode
+    fastify.get('/api/items/by-barcode/:barcode', async (req: FastifyRequest<{ Params: { barcode: string } }>, reply) => {
+        const { barcode } = req.params;
+        const item = db.prepare(`
+            SELECT i.*, 
+                   c.name as container_name,
+                   f.name as furniture_name,
+                   COALESCE(s_c.name, s_f.name) as space_name
+            FROM items i
+            LEFT JOIN containers c ON i.container_id = c.id
+            LEFT JOIN furnitures f ON c.furniture_id = f.id
+            LEFT JOIN spaces s_c ON c.space_id = s_c.id
+            LEFT JOIN spaces s_f ON f.space_id = s_f.id
+            WHERE i.barcode = ?
+        `).get(barcode) as any;
+
+        if (!item) return reply.status(404).send({ error: 'Ítem no encontrado por código de barras' });
+
+        const photos = db.prepare('SELECT * FROM item_photos WHERE item_id = ? ORDER BY is_primary DESC, id ASC').all(item.id);
+        return { ...item, photos };
+    });
+
     fastify.get('/api/items/:id/photos', async (req: FastifyRequest<{ Params: { id: string } }>) => {
         const { id } = req.params;
         return db.prepare('SELECT * FROM item_photos WHERE item_id = ? ORDER BY is_primary DESC, id ASC').all(id);

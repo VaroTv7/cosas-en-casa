@@ -90,6 +90,7 @@ export interface Item {
     container_name?: string;
     furniture_name?: string;
     space_name?: string;
+    barcode?: string; // v0.9 Barcode support
 }
 
 export interface Category {
@@ -286,6 +287,12 @@ export const getItemFull = async (id: number | string) => {
 // Item Photos
 export const getItemPhotos = async (itemId: number) => {
     const response = await api.get<ItemPhoto[]>(`/items/${itemId}/photos`);
+    return response.data;
+};
+
+// v0.9: Item by barcode
+export const getItemByBarcode = async (barcode: string) => {
+    const response = await api.get<ItemFull>(`/items/by-barcode/${barcode}`);
     return response.data;
 };
 

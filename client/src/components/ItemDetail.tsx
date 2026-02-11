@@ -253,6 +253,13 @@ const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
                                     <span style={{ fontFamily: 'monospace' }}>{item.serial_number}</span>
                                 </div>
                             )}
+                            {item.barcode && (
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <Tag size={14} style={{ opacity: 0.6 }} />
+                                    <span style={{ opacity: 0.7 }}>Barcode:</span>
+                                    <span style={{ fontFamily: 'monospace' }}>{item.barcode}</span>
+                                </div>
+                            )}
                             {item.condition && (
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                     <Info size={14} style={{ opacity: 0.6 }} />

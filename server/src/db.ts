@@ -204,7 +204,9 @@ export const initDb = () => {
     `ALTER TABLE items ADD COLUMN loaned_at TEXT`,
     `ALTER TABLE items ADD COLUMN min_quantity INTEGER DEFAULT 0`,
     // v0.7: Invoice Photo
-    `ALTER TABLE items ADD COLUMN invoice_photo_url TEXT`
+    `ALTER TABLE items ADD COLUMN invoice_photo_url TEXT`,
+    // v0.9: Barcode support
+    `ALTER TABLE items ADD COLUMN barcode TEXT`
   ];
 
   for (const migration of itemMigrations) {
@@ -212,6 +214,11 @@ export const initDb = () => {
       db.exec(migration);
     } catch (e) { /* Column already exists */ }
   }
+
+  // v0.9: Index for barcode searching
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_items_barcode ON items(barcode)`);
+  } catch (e) { /* Index already exists */ }
 
   // v0.5: Migrate existing loaned_to names to people table
   try {
