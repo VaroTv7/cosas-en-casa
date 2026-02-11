@@ -385,7 +385,13 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
         ...inventory.flatMap(s => s.containers.map(c => ({ ...c, space_name: s.name, space_icon: s.icon, furniture_name: undefined, furniture_icon: undefined }))),
         ...allFurnitures.flatMap(f => f.containers.map(c => ({ ...c, space_name: f.space_name, space_icon: f.space_icon, furniture_name: f.name, furniture_icon: f.icon })))
     ];
-    const allItems = allContainers.flatMap(c => c.items.map(i => ({ ...i, container_name: c.name, container_icon: c.icon })));
+    const allItems = allContainers.flatMap(c => c.items.map(i => ({
+        ...i,
+        container_name: c.name,
+        container_icon: c.icon,
+        space_name: c.space_name,
+        furniture_name: c.furniture_name
+    })));
 
     // Filter based on search
     const filteredSpaces = inventory.filter(s =>
@@ -901,12 +907,27 @@ export const DatabaseView: React.FC<DatabaseViewProps> = () => {
                             {activeTab === 'items' && (() => {
                                 const groups: Record<string, typeof filteredItems> = {};
                                 filteredItems.forEach(i => {
-                                    const key = i.container_name || 'Sin Contenedor';
+                                    let key = i.container_name || 'Sin Contenedor';
+                                    const anyItem = i as any;
+
+                                    // Add hierarchy context to avoid ambiguous groups
+                                    if (anyItem.furniture_name) {
+                                        key += ` (${anyItem.furniture_name} en ${anyItem.space_name})`;
+                                    } else if (anyItem.space_name) {
+                                        key += ` (${anyItem.space_name})`;
+                                    }
+
                                     if (!groups[key]) groups[key] = [];
                                     groups[key].push(i);
                                 });
-                                return Object.entries(groups).map(([containerName, items]) => (
-                                    <CollapsibleGroup key={containerName} title={`En ${containerName}`} count={items.length} defaultOpen={!!searchQuery} icon={items[0]?.container_icon}>
+                                return Object.entries(groups).map(([groupTitle, items]) => (
+                                    <CollapsibleGroup
+                                        key={groupTitle}
+                                        title={groupTitle.startsWith('Sin') ? groupTitle : `En ${groupTitle}`}
+                                        count={items.length}
+                                        defaultOpen={!!searchQuery}
+                                        icon={(items[0] as any)?.container_icon}
+                                    >
                                         {items.map(item =>
                                             renderClickableRow('items', item, () => setSelectedItem(item))
                                         )}

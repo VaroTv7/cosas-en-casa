@@ -108,6 +108,11 @@ docker-compose up -d --build
 
 ## 📰 Changelog
 
+### v0.9.1 - Fixes de Jerarquía
+- **Inventario**: Ahora muestra correctamente los muebles y sus contenidos.
+- **Base de Datos**: Agrupación mejorada para evitar ambigüedades (muestra contexto Espacio/Mueble).
+- **Edición**: Añadido selector de ubicación para mover objetos fácilmente.
+
 ### v0.9.0 (Barcode Revolution)
 - **Barcode Engine**: Integración de soporte para códigos EAN, UPC y otros formatos industriales.
 - **Form Scan**: Añadido botón de escaneo directo en formularios de objetos.

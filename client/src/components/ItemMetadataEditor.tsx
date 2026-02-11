@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield, FileText, Settings, UserMinus, AlertCircle, Image, Trash2, CheckCircle, Camera } from 'lucide-react';
 import CategoryManager from './CategoryManager';
-import type { Item, Category, Person } from '../services/api';
-import { getCategories, updateItem, getPeople, getItemPhotos, addItemPhoto, deleteItemPhoto, setItemPhotoPrimary } from '../services/api';
+import type { Item, Category, Person, Space, Furniture, Container } from '../services/api';
+import { getCategories, updateItem, getPeople, getItemPhotos, addItemPhoto, deleteItemPhoto, setItemPhotoPrimary, getInventory } from '../services/api';
 import BarcodeScannerModal from './BarcodeScannerModal';
 
 interface Props {
@@ -29,8 +29,14 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
     const [loadingPhotos, setLoadingPhotos] = useState(false);
     const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
+    // Location State
+    const [inventory, setInventory] = useState<Space[]>([]);
+    const [selectedSpaceId, setSelectedSpaceId] = useState<number | ''>('');
+    const [selectedFurnitureId, setSelectedFurnitureId] = useState<number | ''>('');
+
     const [formData, setFormData] = useState({
         // General
+        container_id: item.container_id, // Allow editing container
         category_id: item.category_id || '',
         serial_number: item.serial_number || '',
         brand: item.brand || '',
@@ -70,18 +76,45 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [cats, peeps, photos] = await Promise.all([
+                const [cats, peeps, photos, inv] = await Promise.all([
                     getCategories(),
                     getPeople(),
-                    getItemPhotos(item.id)
+                    getItemPhotos(item.id),
+                    getInventory()
                 ]);
                 setCategories(cats);
                 setPeople(peeps);
                 setItemPhotos(photos);
+                setInventory(inv);
+
+                // Initialize location selectors based on current container_id
+                if (item.container_id) {
+                    // Find the container in the inventory tree
+                    for (const space of inv) {
+                        // Check loose containers
+                        const loose = space.containers.find(c => c.id === item.container_id);
+                        if (loose) {
+                            setSelectedSpaceId(space.id);
+                            setSelectedFurnitureId('');
+                            return;
+                        }
+                        // Check furniture containers
+                        if (space.furnitures) {
+                            for (const furn of space.furnitures) {
+                                const fc = furn.containers.find(c => c.id === item.container_id);
+                                if (fc) {
+                                    setSelectedSpaceId(space.id);
+                                    setSelectedFurnitureId(furn.id);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
             } catch (e) { console.error(e); }
         };
         loadData();
-    }, [item.id]);
+    }, [item.id, item.container_id]);
 
     const selectedCategory = categories.find((c: Category) => c.id === Number(formData.category_id));
     const categoryName = selectedCategory?.name?.toLowerCase() || '';
@@ -126,6 +159,90 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
 
     const renderGeneralTab = () => (
         <div>
+            {/* Ubicación (Space > Furniture > Container) */}
+            <div style={{ marginBottom: '20px', padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+                <h4 style={{ margin: '0 0 10px', fontSize: '0.9em', opacity: 0.9, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Package size={16} /> Ubicación
+                </h4>
+
+                {/* Space Selector */}
+                <div style={fieldGroup}>
+                    <label style={labelStyle}>Espacio / Habitación</label>
+                    <select
+                        value={selectedSpaceId}
+                        onChange={e => {
+                            const val = e.target.value ? Number(e.target.value) : '';
+                            setSelectedSpaceId(val);
+                            setSelectedFurnitureId('');
+                            handleChange('container_id', ''); // Reset container when space changes
+                        }}
+                        style={inputStyle}
+                    >
+                        <option value="">-- Selecciona Espacio --</option>
+                        {inventory.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                </div>
+
+                {/* Furniture Selector (Optional) */}
+                {selectedSpaceId && (() => {
+                    const space = inventory.find(s => s.id === selectedSpaceId);
+                    if (space && space.furnitures && space.furnitures.length > 0) {
+                        return (
+                            <div style={fieldGroup}>
+                                <label style={labelStyle}>Mueble (Opcional)</label>
+                                <select
+                                    value={selectedFurnitureId}
+                                    onChange={e => {
+                                        const val = e.target.value ? Number(e.target.value) : '';
+                                        setSelectedFurnitureId(val);
+                                        handleChange('container_id', ''); // Reset container when furniture changes
+                                    }}
+                                    style={inputStyle}
+                                >
+                                    <option value="">-- Ninguno (Suelo/Suelto) --</option>
+                                    {space.furnitures.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                </select>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
+
+                {/* Container Selector */}
+                {selectedSpaceId && (
+                    <div style={fieldGroup}>
+                        <label style={labelStyle}>Contenedor</label>
+                        <select
+                            value={formData.container_id || ''}
+                            onChange={e => handleChange('container_id', e.target.value)}
+                            style={{
+                                ...inputStyle,
+                                border: !formData.container_id ? '1px solid var(--accent)' : inputStyle.border,
+                                background: !formData.container_id ? 'rgba(var(--accent-rgb), 0.1)' : inputStyle.background
+                            }}
+                        >
+                            <option value="">-- Selecciona Contenedor --</option>
+                            {(() => {
+                                const space = inventory.find(s => s.id === selectedSpaceId);
+                                if (!space) return null;
+
+                                let containers: Container[] = [];
+                                if (selectedFurnitureId) {
+                                    const furn = space.furnitures.find(f => f.id === selectedFurnitureId);
+                                    if (furn) containers = furn.containers;
+                                } else {
+                                    containers = space.containers;
+                                }
+
+                                if (containers.length === 0) return <option disabled>No hay contenedores aquí</option>;
+
+                                return containers.map(c => <option key={c.id} value={c.id}>{c.name}</option>);
+                            })()}
+                        </select>
+                    </div>
+                )}
+            </div>
+
             <div style={fieldGroup}>
                 <label style={labelStyle}>Categoría</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
