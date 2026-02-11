@@ -146,7 +146,17 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
 
     const handleContainerClick = (containerId: number) => {
         for (const space of inventory) {
-            const container = space.containers.find(c => c.id === containerId);
+            // Check direct containers
+            let container = space.containers?.find(c => c.id === containerId);
+
+            // Check containers inside furniture if not found
+            if (!container && space.furnitures) {
+                for (const furniture of space.furnitures) {
+                    container = furniture.containers?.find(c => c.id === containerId);
+                    if (container) break;
+                }
+            }
+
             if (container) {
                 setSelectedContainerItems({ container, items: container.items || [] });
                 return;
