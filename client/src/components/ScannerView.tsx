@@ -62,46 +62,57 @@ const ScannerView: React.FC<Props> = ({ onSelectItem }) => {
     const handleScan = useCallback(async (code: string) => {
         setScanning(false);
         setError(null);
+        const cleanCode = code.trim();
 
-        const parsed = parseQRCode(code);
-        if (!parsed) {
-            // v0.9: If not a custom QR, try to find item by barcode
-            try {
-                const item = await getItemByBarcode(code);
-                setResult({ type: 'item', data: item });
-            } catch (err) {
-                setError(`No se reconoce como QR de la app ni como código de barras registrado: ${code}`);
-            }
-            return;
-        }
+        const parsed = parseQRCode(cleanCode);
 
         try {
-            const inventory = await getInventory();
+            // 1. Try App-specific QR parsing
+            if (parsed) {
+                const inventory = await getInventory();
 
-            if (parsed.type === 'item') {
-                const item = await getItemFull(parsed.id);
-                setResult({ type: 'item', data: item });
-            } else if (parsed.type === 'container') {
-                // Find container and its items
-                for (const space of inventory) {
-                    const container = space.containers.find(c => c.id === Number(parsed.id));
-                    if (container) {
-                        setResult({ type: 'container', data: container, items: container.items });
+                if (parsed.type === 'item') {
+                    try {
+                        const item = await getItemFull(parsed.id);
+                        setResult({ type: 'item', data: item });
+                        return;
+                    } catch (err) {
+                        // If it parsed as item but ID lookup failed, maybe it's a barcode?
+                        // (Happens if parseQRCode misidentifies a numeric barcode as a legacy ID)
+                        console.log("Item lookup by ID failed, trying barcode...");
+                    }
+                } else if (parsed.type === 'container') {
+                    for (const space of inventory) {
+                        const container = space.containers.find(c => c.id === Number(parsed.id));
+                        if (container) {
+                            setResult({ type: 'container', data: container, items: container.items });
+                            return;
+                        }
+                    }
+                    setError('Contenedor no encontrado');
+                    return;
+                } else if (parsed.type === 'space') {
+                    const space = inventory.find(s => s.id === Number(parsed.id));
+                    if (space) {
+                        setResult({ type: 'space', data: space, containers: space.containers });
                         return;
                     }
-                }
-                setError('Contenedor no encontrado');
-            } else if (parsed.type === 'space') {
-                const space = inventory.find(s => s.id === Number(parsed.id));
-                if (space) {
-                    setResult({ type: 'space', data: space, containers: space.containers });
-                } else {
                     setError('Espacio no encontrado');
+                    return;
                 }
             }
+
+            // 2. If QR parsing failed or item-ID lookup failed, try barcode lookup
+            try {
+                const item = await getItemByBarcode(cleanCode);
+                setResult({ type: 'item', data: item });
+            } catch (err) {
+                setError(`No se ha encontrado nada para el código: ${cleanCode}`);
+            }
+
         } catch (err) {
             console.error(err);
-            setError('Error al buscar el elemento');
+            setError('Error crítico al procesar el escaneo');
         }
     }, []);
 
