@@ -3,6 +3,7 @@ import { Home, Box, Package, Camera, ArrowLeft, Settings, ChevronDown, ChevronUp
 import type { Space, Category } from '../services/api';
 import { createSpace, createContainer, createItem, getInventory, getCategories, createFurniture } from '../services/api';
 import CategoryManager from './CategoryManager';
+import BarcodeScannerModal from './BarcodeScannerModal';
 
 interface Props {
     onSuccess: () => void;
@@ -39,6 +40,7 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
     const [purchasePrice, setPurchasePrice] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [showCategoryManager, setShowCategoryManager] = useState(false);
+    const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
     useEffect(() => {
         if (mode !== 'menu') {
@@ -438,7 +440,22 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
                             </div>
                             <div className="input-group">
                                 <label>Código de Barras (EAN/UPC)</label>
-                                <input type="text" value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Ej: 5026555424265" />
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <input
+                                        type="text"
+                                        value={barcode}
+                                        onChange={e => setBarcode(e.target.value)}
+                                        placeholder="Ej: 5026555424265"
+                                        style={{ flex: 1 }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowBarcodeScanner(true)}
+                                        style={{ padding: '8px 12px', background: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '5px' }}
+                                    >
+                                        <Camera size={18} /> Escanear
+                                    </button>
+                                </div>
                             </div>
                             <div className="input-group">
                                 <label>Número de Serie</label>
@@ -479,6 +496,13 @@ const AddItemForm: React.FC<Props> = ({ onSuccess, initialMode = 'menu' }) => {
                         setShowCategoryManager(false);
                         loadData(); // Refresh both inventory and categories
                     }}
+                />
+            )}
+
+            {showBarcodeScanner && (
+                <BarcodeScannerModal
+                    onScan={setBarcode}
+                    onClose={() => setShowBarcodeScanner(false)}
                 />
             )}
         </div>

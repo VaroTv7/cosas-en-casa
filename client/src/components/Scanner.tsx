@@ -11,8 +11,14 @@ const Scanner = ({ onScan }: Props) => {
     useEffect(() => {
         const scanner = new Html5QrcodeScanner(
             "reader",
-            { fps: 10, qrbox: { width: 250, height: 250 } },
-      /* verbose= */ false
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 },
+                formatsToSupport: [
+                    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 // All formats
+                ]
+            },
+            false
         );
 
         scanner.render(onScanSuccess, onScanFailure);

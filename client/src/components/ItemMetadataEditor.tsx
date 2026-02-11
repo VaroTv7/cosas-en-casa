@@ -3,6 +3,7 @@ import { X, Save, Book, Gamepad2, Laptop, Package, Calendar, DollarSign, Shield,
 import CategoryManager from './CategoryManager';
 import type { Item, Category, Person } from '../services/api';
 import { getCategories, updateItem, getPeople, getItemPhotos, addItemPhoto, deleteItemPhoto, setItemPhotoPrimary } from '../services/api';
+import BarcodeScannerModal from './BarcodeScannerModal';
 
 interface Props {
     item: Item;
@@ -26,6 +27,7 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
     const [invoicePhoto, setInvoicePhoto] = useState<File | null>(null);
     const [itemPhotos, setItemPhotos] = useState<any[]>([]);
     const [loadingPhotos, setLoadingPhotos] = useState(false);
+    const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
 
     const [formData, setFormData] = useState({
         // General
@@ -149,7 +151,22 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
             </div>
             <div style={fieldGroup}>
                 <label style={labelStyle}>Código de Barras (EAN/UPC)</label>
-                <input type="text" value={formData.barcode} onChange={e => handleChange('barcode', e.target.value)} style={inputStyle} placeholder="Ej: 5026555424265" />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                        type="text"
+                        value={formData.barcode}
+                        onChange={e => handleChange('barcode', e.target.value)}
+                        style={{ ...inputStyle, flex: 1 }}
+                        placeholder="Ej: 5026555424265"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowBarcodeScanner(true)}
+                        style={{ ...inputStyle, width: 'auto', padding: '10px', background: 'var(--primary)' }}
+                    >
+                        <Camera size={18} />
+                    </button>
+                </div>
             </div>
             <div style={fieldGroup}>
                 <label style={labelStyle}>Número de serie</label>
@@ -582,6 +599,13 @@ const ItemMetadataEditor: React.FC<Props> = ({ item, onClose, onSaved }) => {
                             }
                         }).catch(console.error);
                     }}
+                />
+            )}
+
+            {showBarcodeScanner && (
+                <BarcodeScannerModal
+                    onScan={(code) => handleChange('barcode', code)}
+                    onClose={() => setShowBarcodeScanner(false)}
                 />
             )}
         </div>
