@@ -3,13 +3,19 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/Version-0.8.1-purple.svg)]()
+[![Version](https://img.shields.io/badge/Version-0.9.0-purple.svg)]()
 
 **Cosas en Casa** es una aplicación web de inventario doméstico profesional. Organiza, cataloga y encuentra tus pertenencias con metadatos extendidos, gestión de categorías, préstamos a personas, jerarquía profunda de muebles y un plano interactivo.
 
 ---
 
 ## ✨ Características Principales
+13: 
+14: ### 📦 Escáner de Códigos de Barras (v0.9) - ¡Nuevo!
+15: - **Soporte Universal**: Registra y escanea códigos de barras originales (EAN, UPC, etc.) para encontrar tus objetos al instante.
+16: - **Escaneo en Formularios**: Botón de cámara 📷 integrado en los formularios de alta y edición para capturar códigos automáticamente sin errores.
+17: - **Buscador Dual**: El escáner principal detecta tanto QRs internos de la app como códigos de barras de fabricante.
+18: 
 
 ### 🪑 Jerarquía Profunda (v0.8)
 - **Soporte de Muebles**: Nuevo sistema jerárquico real: *Espacio → Mueble → Contenedor → Objeto*.
@@ -95,11 +101,18 @@ docker-compose up -d --build
 ## 📝 Roadmap (Futuro - Diferido)
 - [x] ~~Búsqueda global desde la pantalla de inicio (Omnibox).~~
 - [x] ~~Estadísticas de valor total del inventario.~~
-- [ ] Escaneo de ISBN/Códigos de Barras para auto-rellenado (OpenLibrary integration).
+- [x] ~~Soporte para Códigos de Barras original (EAN/UPC).~~
+- [ ] Integración con OpenLibrary (Auto-rellenado por ISBN).
 - [ ] Modo multi-vivienda.
 - [ ] PWA (Progressive Web App) para instalación en móvil.
 
 ## 📰 Changelog
+
+### v0.9.0 (Barcode Revolution)
+- **Barcode Engine**: Integración de soporte para códigos EAN, UPC y otros formatos industriales.
+- **Form Scan**: Añadido botón de escaneo directo en formularios de objetos.
+- **Intelligent Lookup**: El escáner principal ahora resuelve códigos de barras registrados automáticamente.
+- **UX Fixes**: Corrección en la identificación de códigos puramente numéricos.
 
 ### v0.8.1 (UX Polish & Smart Features)
 - **Database Grouping**: Vistas agrupadas por ubicación con acordeones.
@@ -133,6 +146,6 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 ---
 
 <p align="center">
-  <strong>🏠 Cosas en Casa v0.8 by ElVartoDev</strong><br>
+  <strong>🏠 Cosas en Casa v0.9 by ElVartoDev</strong><br>
   <em>Organización inteligente y social para tu hogar.</em>
 </p>
