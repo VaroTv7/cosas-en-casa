@@ -229,6 +229,11 @@ export const initDb = () => {
     }
   } catch (e) { console.error('Error migrating people:', e); }
 
+  // v1.0.0: Rotation support for FloorPlan 2.0
+  try { db.exec(`ALTER TABLE room_layouts ADD COLUMN rotation INTEGER DEFAULT 0`); } catch (e) { }
+  try { db.exec(`ALTER TABLE furniture_positions ADD COLUMN rotation INTEGER DEFAULT 0`); } catch (e) { }
+  try { db.exec(`ALTER TABLE container_positions ADD COLUMN rotation INTEGER DEFAULT 0`); } catch (e) { }
+
   // v0.8.2: Furniture positions on floor plan
   db.exec(`
     CREATE TABLE IF NOT EXISTS furniture_positions (
@@ -239,6 +244,7 @@ export const initDb = () => {
       y INTEGER DEFAULT 10,
       width INTEGER DEFAULT 60,
       height INTEGER DEFAULT 60,
+      rotation INTEGER DEFAULT 0,
       FOREIGN KEY(furniture_id) REFERENCES furnitures(id) ON DELETE CASCADE,
       FOREIGN KEY(room_layout_id) REFERENCES room_layouts(id) ON DELETE SET NULL
     );

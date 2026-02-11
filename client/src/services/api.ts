@@ -243,6 +243,7 @@ export interface RoomLayout {
     width: number;
     height: number;
     color: string;
+    rotation?: number;
 }
 
 export interface ContainerPosition {
@@ -256,6 +257,7 @@ export interface ContainerPosition {
     width?: number;
     height?: number;
     icon: string;
+    rotation?: number;
 }
 
 export interface FurniturePosition {
@@ -269,6 +271,7 @@ export interface FurniturePosition {
     y: number;
     width?: number;
     height?: number;
+    rotation?: number;
 }
 
 export interface FloorPlanData {
@@ -332,7 +335,7 @@ export const createRoomLayout = async (data: { space_id: number; x?: number; y?:
     return response.data;
 };
 
-export const updateRoomLayout = async (id: number, data: { x?: number; y?: number; width?: number; height?: number; color?: string }) => {
+export const updateRoomLayout = async (id: number, data: { x?: number; y?: number; width?: number; height?: number; color?: string; rotation?: number }) => {
     const response = await api.put(`/room-layouts/${id}`, data);
     return response.data;
 };
@@ -348,7 +351,7 @@ export const createContainerPosition = async (data: { container_id: number; room
     return response.data;
 };
 
-export const updateContainerPosition = async (id: number, data: { room_layout_id?: number; x?: number; y?: number; width?: number; height?: number; icon?: string }) => {
+export const updateContainerPosition = async (id: number, data: { room_layout_id?: number | null; x?: number; y?: number; width?: number; height?: number; icon?: string; rotation?: number }) => {
     const response = await api.put(`/container-positions/${id}`, data);
     return response.data;
 };
@@ -364,7 +367,7 @@ export const createFurniturePosition = async (data: { furniture_id: number; room
     return response.data;
 };
 
-export const updateFurniturePosition = async (id: number, data: { room_layout_id?: number; x?: number; y?: number; width?: number; height?: number }) => {
+export const updateFurniturePosition = async (id: number, data: { room_layout_id?: number | null; x?: number; y?: number; width?: number; height?: number; rotation?: number }) => {
     const response = await api.put(`/furniture-positions/${id}`, data);
     return response.data;
 };

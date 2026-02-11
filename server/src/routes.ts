@@ -835,15 +835,15 @@ export default async function routes(fastify: FastifyInstance) {
         if (existing) return reply.status(400).send({ error: 'Este espacio ya tiene un layout' });
 
         const result = db.prepare(`
-            INSERT INTO room_layouts (space_id, x, y, width, height, color) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(space_id, x || 50, y || 50, width || 150, height || 120, color || '#2a2a4e');
+            INSERT INTO room_layouts (space_id, x, y, width, height, color, rotation) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(space_id, x || 50, y || 50, width || 150, height || 120, color || '#2a2a4e', 0);
         return { id: result.lastInsertRowid };
     });
 
-    fastify.put('/api/room-layouts/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { x?: number, y?: number, width?: number, height?: number, color?: string } }>, reply) => {
+    fastify.put('/api/room-layouts/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { x?: number, y?: number, width?: number, height?: number, color?: string, rotation?: number } }>, reply) => {
         const { id } = req.params;
-        const { x, y, width, height, color } = req.body;
+        const { x, y, width, height, color, rotation } = req.body;
 
         const updates: string[] = [];
         const values: any[] = [];
@@ -852,6 +852,7 @@ export default async function routes(fastify: FastifyInstance) {
         if (width !== undefined) { updates.push('width = ?'); values.push(width); }
         if (height !== undefined) { updates.push('height = ?'); values.push(height); }
         if (color) { updates.push('color = ?'); values.push(color); }
+        if (rotation !== undefined) { updates.push('rotation = ?'); values.push(rotation); }
 
         if (updates.length === 0) return { success: true };
 
@@ -878,15 +879,15 @@ export default async function routes(fastify: FastifyInstance) {
         if (existing) return reply.status(400).send({ error: 'Este contenedor ya tiene posición' });
 
         const result = db.prepare(`
-            INSERT INTO container_positions (container_id, room_layout_id, x, y, width, height, icon) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(container_id, room_layout_id || null, x || 10, y || 10, width || 60, height || 60, icon || 'box');
+            INSERT INTO container_positions (container_id, room_layout_id, x, y, width, height, icon, rotation) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(container_id, room_layout_id || null, x || 10, y || 10, width || 60, height || 60, icon || 'box', 0);
         return { id: result.lastInsertRowid };
     });
 
-    fastify.put('/api/container-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, width?: number, height?: number, icon?: string } }>, reply) => {
+    fastify.put('/api/container-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, width?: number, height?: number, icon?: string, rotation?: number } }>, reply) => {
         const { id } = req.params;
-        const { room_layout_id, x, y, width, height, icon } = req.body;
+        const { room_layout_id, x, y, width, height, icon, rotation } = req.body;
 
         const updates: string[] = [];
         const values: any[] = [];
@@ -896,6 +897,7 @@ export default async function routes(fastify: FastifyInstance) {
         if (width !== undefined) { updates.push('width = ?'); values.push(width); }
         if (height !== undefined) { updates.push('height = ?'); values.push(height); }
         if (icon) { updates.push('icon = ?'); values.push(icon); }
+        if (rotation !== undefined) { updates.push('rotation = ?'); values.push(rotation); }
 
         if (updates.length === 0) return { success: true };
 
@@ -921,15 +923,15 @@ export default async function routes(fastify: FastifyInstance) {
         if (existing) return reply.status(400).send({ error: 'Este mueble ya tiene posición' });
 
         const result = db.prepare(`
-            INSERT INTO furniture_positions (furniture_id, room_layout_id, x, y, width, height) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        `).run(furniture_id, room_layout_id || null, x || 10, y || 10, width || 60, height || 60);
+            INSERT INTO furniture_positions (furniture_id, room_layout_id, x, y, width, height, rotation) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(furniture_id, room_layout_id || null, x || 10, y || 10, width || 60, height || 60, 0);
         return { id: result.lastInsertRowid };
     });
 
-    fastify.put('/api/furniture-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, width?: number, height?: number } }>, reply) => {
+    fastify.put('/api/furniture-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, width?: number, height?: number, rotation?: number } }>, reply) => {
         const { id } = req.params;
-        const { room_layout_id, x, y, width, height } = req.body;
+        const { room_layout_id, x, y, width, height, rotation } = req.body;
 
         const updates: string[] = [];
         const values: any[] = [];
@@ -938,6 +940,7 @@ export default async function routes(fastify: FastifyInstance) {
         if (y !== undefined) { updates.push('y = ?'); values.push(y); }
         if (width !== undefined) { updates.push('width = ?'); values.push(width); }
         if (height !== undefined) { updates.push('height = ?'); values.push(height); }
+        if (rotation !== undefined) { updates.push('rotation = ?'); values.push(rotation); }
 
         if (updates.length > 0) {
             values.push(id);

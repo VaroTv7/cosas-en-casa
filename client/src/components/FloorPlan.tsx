@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
     getFloorPlan,
     getInventory,
@@ -14,6 +14,7 @@ import {
     type FloorPlanData,
     type Space,
     type Container,
+    type Furniture,
     type Item
 } from '../services/api';
 import { Plus, Trash2, Box, Home, X, Settings, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
@@ -35,6 +36,7 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
     const [showAddContainer, setShowAddContainer] = useState(false);
     const [showAddFurniture, setShowAddFurniture] = useState(false);
     const [selectedContainerItems, setSelectedContainerItems] = useState<{ container: Container; items: Item[] } | null>(null);
+    const [selectedFurniture, setSelectedFurniture] = useState<{ furniture: Furniture; containers: Container[] } | null>(null);
 
     // Zoom and pan state
     const [zoom, setZoom] = useState(1);
@@ -147,6 +149,16 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
             const container = space.containers.find(c => c.id === containerId);
             if (container) {
                 setSelectedContainerItems({ container, items: container.items || [] });
+                return;
+            }
+        }
+    };
+
+    const handleFurnitureClick = (furnitureId: number) => {
+        for (const space of inventory) {
+            const furniture = space.furnitures.find(f => f.id === furnitureId);
+            if (furniture) {
+                setSelectedFurniture({ furniture, containers: furniture.containers || [] });
                 return;
             }
         }
@@ -266,6 +278,36 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         setDragging(null);
     };
 
+    const handleRotate = async (type: 'room' | 'container' | 'furniture', id: number) => {
+        if (!floorPlan) return;
+
+        try {
+            if (type === 'room') {
+                const room = floorPlan.rooms.find(r => r.id === id);
+                if (room) {
+                    const newRotation = ((room.rotation || 0) + 90) % 360;
+                    setFloorPlan({
+                        ...floorPlan,
+                        rooms: floorPlan.rooms.map(r => r.id === id ? { ...r, rotation: newRotation } : r)
+                    });
+                    await updateRoomLayout(room.id, { rotation: newRotation });
+                }
+            } else if (type === 'furniture') {
+                const furniture = floorPlan.furnitures.find(f => f.id === id);
+                if (furniture) {
+                    const newRotation = ((furniture.rotation || 0) + 90) % 360;
+                    setFloorPlan({
+                        ...floorPlan,
+                        furnitures: floorPlan.furnitures.map(f => f.id === id ? { ...f, rotation: newRotation } : f)
+                    });
+                    await updateFurniturePosition(furniture.id, { rotation: newRotation });
+                }
+            }
+        } catch (err) {
+            console.error('Error rotating:', err);
+        }
+    };
+
     const handleResizeStart = (e: React.MouseEvent, type: 'room' | 'container' | 'furniture', id: number) => {
         e.stopPropagation();
         if (!editMode) return;
@@ -366,31 +408,46 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
             .map(f => ({ ...f, spaceName: s.name })) : []
     );
 
+    // v1.0.0: Find which containers are NOT in furniture for the map
+    const containersInFurnitureIds = useMemo(() => {
+        const ids = new Set<number>();
+        inventory.forEach(s => {
+            s.furnitures.forEach(f => {
+                f.containers.forEach(c => ids.add(c.id));
+            });
+        });
+        return ids;
+    }, [inventory]);
+
     const renderFurniture = (furniture: any, inRoom: boolean = false) => {
         const w = furniture.width || 60;
         const h = furniture.height || 60;
+        const rotation = furniture.rotation || 0;
 
         return (
             <div
                 key={`furniture-${furniture.id}`}
                 onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'furniture', furniture.id); }}
+                onClick={(e) => { e.stopPropagation(); !editMode && handleFurnitureClick(furniture.furniture_id); }}
                 style={{
                     position: 'absolute',
                     left: furniture.x,
                     top: inRoom ? furniture.y + 28 : furniture.y,
                     width: w,
                     height: h,
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    border: editMode ? '2px dashed #3b82f6' : '1px solid rgba(59, 130, 246, 0.5)',
-                    borderRadius: '8px',
-                    cursor: editMode ? 'move' : 'default',
+                    background: 'rgba(59, 130, 246, 0.25)',
+                    border: editMode ? '2px dashed #3b82f6' : '2px solid rgba(59, 130, 246, 0.6)',
+                    borderRadius: '4px',
+                    cursor: editMode ? 'move' : 'pointer',
                     userSelect: 'none',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     zIndex: 9,
-                    overflow: 'hidden'
+                    overflow: 'visible', // Changed to visible for rotate button
+                    transform: `rotate(${rotation}deg)`,
+                    transition: (dragging || resizing) ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
             >
                 <Home size={Math.min(w, h) * 0.35} style={{ opacity: 0.8, color: '#3b82f6' }} />
@@ -410,28 +467,48 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
 
                 {editMode && (
                     <>
+                        {/* Rotate Button */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleRotate('furniture', furniture.id); }}
+                            style={{
+                                position: 'absolute', top: -10, left: -10,
+                                padding: '4px', background: 'var(--primary)', borderRadius: '50%',
+                                width: '22px', height: '22px', color: 'white',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                            }}
+                            title="Rotar 90°"
+                        >
+                            <ZoomIn size={12} style={{ transform: 'rotate(45deg)' }} />
+                        </button>
+
                         <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteFurniture(furniture.id); }}
                             style={{
-                                position: 'absolute', top: -6, right: -6,
+                                position: 'absolute', top: -10, right: -10,
                                 padding: '3px', background: '#ef4444', borderRadius: '50%',
-                                width: '18px', height: '18px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                width: '22px', height: '22px', color: 'white',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer',
+                                boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
                             }}
                         >
-                            <X size={10} />
+                            <Trash2 size={12} />
                         </button>
                         <div
                             onMouseDown={(e) => handleResizeStart(e, 'furniture', furniture.id)}
                             style={{
                                 position: 'absolute',
-                                right: 0,
-                                bottom: 0,
-                                width: 12,
-                                height: 12,
+                                right: -4,
+                                bottom: -4,
+                                width: 14,
+                                height: 14,
                                 cursor: 'se-resize',
                                 background: '#3b82f6',
-                                borderRadius: '0 0 6px 0'
+                                borderRadius: '50%',
+                                border: '2px solid white',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                             }}
                         />
                     </>
@@ -614,11 +691,14 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                                 top: room.y,
                                 width: room.width,
                                 height: room.height,
-                                background: room.color + '40',
-                                border: `2px solid ${room.color}`,
-                                borderRadius: '8px',
+                                background: room.color + '25',
+                                border: `4px solid ${room.color}`, // Thicker walls
+                                borderRadius: '4px',
                                 cursor: editMode ? 'move' : 'default',
-                                userSelect: 'none'
+                                userSelect: 'none',
+                                transform: `rotate(${room.rotation || 0}deg)`,
+                                transition: (dragging || resizing) ? 'none' : 'transform 0.2s ease-in-out',
+                                boxShadow: 'inset 0 0 15px rgba(0,0,0,0.2)'
                             }}
                         >
                             <div style={{
@@ -634,12 +714,20 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                             }}>
                                 <span>{room.space_name}</span>
                                 {editMode && (
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room.id); }}
-                                        style={{ padding: '2px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}
-                                    >
-                                        <Trash2 size={12} />
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleRotate('room', room.id); }}
+                                            style={{ padding: '2px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px' }}
+                                        >
+                                            <ZoomIn size={12} style={{ transform: 'rotate(45deg)' }} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room.id); }}
+                                            style={{ padding: '2px', background: 'rgba(239, 68, 68, 0.6)', borderRadius: '4px' }}
+                                        >
+                                            <Trash2 size={12} />
+                                        </button>
+                                    </div>
                                 )}
                             </div>
 
@@ -648,9 +736,9 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                                 .filter(f => f.room_layout_id === room.id)
                                 .map(furniture => renderFurniture(furniture, true))}
 
-                            {/* Containers inside this room */}
+                            {/* Containers inside this room (ONLY those not in furniture) */}
                             {floorPlan?.containers
-                                .filter(c => c.room_layout_id === room.id)
+                                .filter(c => c.room_layout_id === room.id && !containersInFurnitureIds.has(c.container_id))
                                 .map(container => renderContainer(container, true))}
 
                             {/* Resize handle for room */}
@@ -677,9 +765,9 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                         .filter(f => !f.room_layout_id)
                         .map(furniture => renderFurniture(furniture, false))}
 
-                    {/* Containers without room (floating) */}
+                    {/* Containers without room (floating, ONLY those not in furniture) */}
                     {floorPlan?.containers
-                        .filter(c => !c.room_layout_id)
+                        .filter(c => !c.room_layout_id && !containersInFurnitureIds.has(c.container_id))
                         .map(container => renderContainer(container, false))}
 
                     {/* Empty state */}
@@ -827,6 +915,62 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                     </div>
                 </div>
             )}
+            {/* Furniture Detail Modal (v1.0.0) */}
+            {selectedFurniture && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem', boxSizing: 'border-box'
+                }}>
+                    <div className="card" style={{ width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ background: 'rgba(59, 130, 246, 0.2)', padding: '8px', borderRadius: '8px' }}>
+                                    <Home size={24} style={{ color: '#3b82f6' }} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0 }}>{selectedFurniture.furniture.name}</h3>
+                                    <p style={{ margin: 0, fontSize: '0.8em', opacity: 0.7 }}>Contenido del mueble</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedFurniture(null)} style={{ background: 'transparent', padding: '5px' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {selectedFurniture.containers.length === 0 ? (
+                            <p style={{ opacity: 0.7, textAlign: 'center', padding: '2rem' }}>Este mueble no tiene cajas asignadas</p>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+                                {selectedFurniture.containers.map(container => (
+                                    <div
+                                        key={container.id}
+                                        onClick={() => { setSelectedFurniture(null); handleContainerClick(container.id); }}
+                                        className="container-card-mini"
+                                        style={{
+                                            padding: '15px',
+                                            background: 'var(--glass-border)',
+                                            borderRadius: '12px',
+                                            cursor: 'pointer',
+                                            textAlign: 'center',
+                                            transition: 'transform 0.2s',
+                                            border: '1px solid rgba(255,255,255,0.05)'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                    >
+                                        <Box size={32} style={{ marginBottom: '8px', opacity: 0.8 }} />
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.9em' }}>{container.name}</div>
+                                        <div style={{ fontSize: '0.75em', opacity: 0.6 }}>
+                                            {container.items?.length || 0} objetos
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Add Furniture Modal */}
             {showAddFurniture && (
                 <div style={{
