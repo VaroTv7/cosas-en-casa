@@ -252,10 +252,24 @@ export interface ContainerPosition {
     icon: string;
 }
 
+export interface FurniturePosition {
+    id: number;
+    furniture_id: number;
+    furniture_name: string;
+    logic_space_id: number;
+    logic_icon?: string;
+    room_layout_id?: number;
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+}
+
 export interface FloorPlanData {
     plan: FloorPlan;
     rooms: RoomLayout[];
     containers: ContainerPosition[];
+    furnitures: FurniturePosition[];
 }
 
 // Item with photos
@@ -329,6 +343,22 @@ export const updateContainerPosition = async (id: number, data: { room_layout_id
 
 export const deleteContainerPosition = async (id: number) => {
     const response = await api.delete(`/container-positions/${id}`);
+    return response.data;
+};
+
+// Furniture Positions
+export const createFurniturePosition = async (data: { furniture_id: number; room_layout_id?: number; x?: number; y?: number; width?: number; height?: number }) => {
+    const response = await api.post('/furniture-positions', data);
+    return response.data;
+};
+
+export const updateFurniturePosition = async (id: number, data: { room_layout_id?: number; x?: number; y?: number; width?: number; height?: number }) => {
+    const response = await api.put(`/furniture-positions/${id}`, data);
+    return response.data;
+};
+
+export const deleteFurniturePosition = async (id: number) => {
+    const response = await api.delete(`/furniture-positions/${id}`);
     return response.data;
 };
 

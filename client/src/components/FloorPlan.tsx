@@ -8,6 +8,9 @@ import {
     createContainerPosition,
     updateContainerPosition,
     deleteContainerPosition,
+    createFurniturePosition,
+    updateFurniturePosition,
+    deleteFurniturePosition,
     type FloorPlanData,
     type Space,
     type Container,
@@ -26,10 +29,11 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
     const [inventory, setInventory] = useState<Space[]>([]);
     const [loading, setLoading] = useState(true);
     const [editMode, setEditMode] = useState(false);
-    const [dragging, setDragging] = useState<{ type: 'room' | 'container', id: number, offsetX: number, offsetY: number } | null>(null);
-    const [resizing, setResizing] = useState<{ type: 'room' | 'container', id: number, startX: number, startY: number, startW: number, startH: number } | null>(null);
+    const [dragging, setDragging] = useState<{ type: 'room' | 'container' | 'furniture', id: number, offsetX: number, offsetY: number } | null>(null);
+    const [resizing, setResizing] = useState<{ type: 'room' | 'container' | 'furniture', id: number, startX: number, startY: number, startW: number, startH: number } | null>(null);
     const [showAddRoom, setShowAddRoom] = useState(false);
     const [showAddContainer, setShowAddContainer] = useState(false);
+    const [showAddFurniture, setShowAddFurniture] = useState(false);
     const [selectedContainerItems, setSelectedContainerItems] = useState<{ container: Container; items: Item[] } | null>(null);
 
     // Zoom and pan state
@@ -91,6 +95,23 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         }
     };
 
+    const handleAddFurniture = async (furnitureId: number, roomLayoutId?: number) => {
+        try {
+            await createFurniturePosition({
+                furniture_id: furnitureId,
+                room_layout_id: roomLayoutId,
+                x: 20,
+                y: 20,
+                width: 70,
+                height: 70
+            });
+            await loadData();
+            setShowAddContainer(false);
+        } catch (err: any) {
+            alert(err?.response?.data?.error || 'Error al añadir mueble');
+        }
+    };
+
     const handleDeleteRoom = async (id: number) => {
         if (!confirm('¿Eliminar esta habitación del plano?')) return;
         try {
@@ -105,6 +126,16 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         if (!confirm('¿Eliminar este contenedor del plano?')) return;
         try {
             await deleteContainerPosition(id);
+            await loadData();
+        } catch (err) {
+            alert('Error al eliminar');
+        }
+    };
+
+    const handleDeleteFurniture = async (id: number) => {
+        if (!confirm('¿Eliminar este mueble del plano?')) return;
+        try {
+            await deleteFurniturePosition(id);
             await loadData();
         } catch (err) {
             alert('Error al eliminar');
@@ -155,7 +186,7 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         setZoom(z => Math.min(2, Math.max(0.3, z + delta)));
     };
 
-    const handleMouseDown = (e: React.MouseEvent, type: 'room' | 'container', id: number) => {
+    const handleMouseDown = (e: React.MouseEvent, type: 'room' | 'container' | 'furniture', id: number) => {
         if (!editMode) return;
         e.stopPropagation();
         const rect = canvasRef.current?.getBoundingClientRect();
@@ -163,7 +194,9 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
 
         const item = type === 'room'
             ? floorPlan?.rooms.find(r => r.id === id)
-            : floorPlan?.containers.find(c => c.id === id);
+            : (type === 'container'
+                ? floorPlan?.containers.find(c => c.id === id)
+                : floorPlan?.furnitures.find(f => f.id === id));
 
         if (!item) return;
 
@@ -196,6 +229,13 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                     c.id === dragging.id ? { ...c, x: newX, y: newY } : c
                 )
             });
+        } else if (dragging.type === 'furniture' && floorPlan) {
+            setFloorPlan({
+                ...floorPlan,
+                furnitures: floorPlan.furnitures.map(f =>
+                    f.id === dragging.id ? { ...f, x: newX, y: newY } : f
+                )
+            });
         }
     };
 
@@ -208,10 +248,15 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                 if (room) {
                     await updateRoomLayout(room.id, { x: room.x, y: room.y });
                 }
-            } else {
+            } else if (dragging.type === 'container') {
                 const container = floorPlan.containers.find(c => c.id === dragging.id);
                 if (container) {
                     await updateContainerPosition(container.id, { x: container.x, y: container.y });
+                }
+            } else if (dragging.type === 'furniture') {
+                const furniture = floorPlan.furnitures.find(f => f.id === dragging.id);
+                if (furniture) {
+                    await updateFurniturePosition(furniture.id, { x: furniture.x, y: furniture.y });
                 }
             }
         } catch (err) {
@@ -221,13 +266,15 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
         setDragging(null);
     };
 
-    const handleResizeStart = (e: React.MouseEvent, type: 'room' | 'container', id: number) => {
+    const handleResizeStart = (e: React.MouseEvent, type: 'room' | 'container' | 'furniture', id: number) => {
         e.stopPropagation();
         if (!editMode) return;
 
         const item = type === 'room'
             ? floorPlan?.rooms.find(r => r.id === id)
-            : floorPlan?.containers.find(c => c.id === id);
+            : (type === 'container'
+                ? floorPlan?.containers.find(c => c.id === id)
+                : floorPlan?.furnitures.find(f => f.id === id));
         if (!item) return;
 
         setResizing({
@@ -255,11 +302,18 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                     r.id === resizing.id ? { ...r, width: newW, height: newH } : r
                 )
             });
-        } else {
+        } else if (resizing.type === 'container') {
             setFloorPlan({
                 ...floorPlan,
                 containers: floorPlan.containers.map(c =>
                     c.id === resizing.id ? { ...c, width: newW, height: newH } : c
+                )
+            });
+        } else if (resizing.type === 'furniture') {
+            setFloorPlan({
+                ...floorPlan,
+                furnitures: floorPlan.furnitures.map(f =>
+                    f.id === resizing.id ? { ...f, width: newW, height: newH } : f
                 )
             });
         }
@@ -274,12 +328,20 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                 if (room) {
                     await updateRoomLayout(room.id, { width: room.width, height: room.height });
                 }
-            } else {
+            } else if (resizing.type === 'container') {
                 const container = floorPlan.containers.find(c => c.id === resizing.id);
                 if (container) {
                     await updateContainerPosition(container.id, {
                         width: (container as any).width || 60,
                         height: (container as any).height || 60
+                    });
+                }
+            } else if (resizing.type === 'furniture') {
+                const furniture = floorPlan.furnitures.find(f => f.id === resizing.id);
+                if (furniture) {
+                    await updateFurniturePosition(furniture.id, {
+                        width: (furniture as any).width || 60,
+                        height: (furniture as any).height || 60
                     });
                 }
             }
@@ -299,7 +361,86 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
             .map(c => ({ ...c, spaceName: s.name }))
     );
 
-    // Render a container (furniture) element
+    const availableFurnitures = inventory.flatMap(s =>
+        s.furnitures ? s.furnitures.filter(f => !floorPlan?.furnitures.some(fp => fp.furniture_id === f.id))
+            .map(f => ({ ...f, spaceName: s.name })) : []
+    );
+
+    const renderFurniture = (furniture: any, inRoom: boolean = false) => {
+        const w = furniture.width || 60;
+        const h = furniture.height || 60;
+
+        return (
+            <div
+                key={`furniture-${furniture.id}`}
+                onMouseDown={(e) => { e.stopPropagation(); handleMouseDown(e, 'furniture', furniture.id); }}
+                style={{
+                    position: 'absolute',
+                    left: furniture.x,
+                    top: inRoom ? furniture.y + 28 : furniture.y,
+                    width: w,
+                    height: h,
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    border: editMode ? '2px dashed #3b82f6' : '1px solid rgba(59, 130, 246, 0.5)',
+                    borderRadius: '8px',
+                    cursor: editMode ? 'move' : 'default',
+                    userSelect: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9,
+                    overflow: 'hidden'
+                }}
+            >
+                <Home size={Math.min(w, h) * 0.35} style={{ opacity: 0.8, color: '#3b82f6' }} />
+                <div style={{
+                    fontSize: `${Math.max(8, Math.min(12, w * 0.12))}px`,
+                    maxWidth: w - 8,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textAlign: 'center',
+                    marginTop: '2px',
+                    color: '#3b82f6',
+                    fontWeight: 'bold'
+                }}>
+                    {furniture.furniture_name}
+                </div>
+
+                {editMode && (
+                    <>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteFurniture(furniture.id); }}
+                            style={{
+                                position: 'absolute', top: -6, right: -6,
+                                padding: '3px', background: '#ef4444', borderRadius: '50%',
+                                width: '18px', height: '18px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}
+                        >
+                            <X size={10} />
+                        </button>
+                        <div
+                            onMouseDown={(e) => handleResizeStart(e, 'furniture', furniture.id)}
+                            style={{
+                                position: 'absolute',
+                                right: 0,
+                                bottom: 0,
+                                width: 12,
+                                height: 12,
+                                cursor: 'se-resize',
+                                background: '#3b82f6',
+                                borderRadius: '0 0 6px 0'
+                            }}
+                        />
+                    </>
+                )}
+            </div>
+        );
+    };
+
+    // Render a container (box) element
     const renderContainer = (container: any, inRoom: boolean = false) => {
         const w = container.width || 60;
         const h = container.height || 60;
@@ -417,6 +558,9 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                         <Plus size={14} style={{ marginRight: '3px' }} /> Añadir Habitación
                     </button>
                     <button onClick={() => setShowAddContainer(true)} style={{ background: 'var(--secondary)', fontSize: '0.85em' }}>
+                        <Plus size={14} style={{ marginRight: '3px' }} /> Añadir Contenedor
+                    </button>
+                    <button onClick={() => setShowAddFurniture(true)} style={{ background: 'var(--secondary)', fontSize: '0.85em' }}>
                         <Plus size={14} style={{ marginRight: '3px' }} /> Añadir Mueble
                     </button>
                     <span style={{ fontSize: '0.75em', opacity: 0.6, alignSelf: 'center' }}>
@@ -499,6 +643,11 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                                 )}
                             </div>
 
+                            {/* Furnitures inside this room */}
+                            {floorPlan?.furnitures
+                                .filter(f => f.room_layout_id === room.id)
+                                .map(furniture => renderFurniture(furniture, true))}
+
                             {/* Containers inside this room */}
                             {floorPlan?.containers
                                 .filter(c => c.room_layout_id === room.id)
@@ -522,6 +671,11 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                             )}
                         </div>
                     ))}
+
+                    {/* Furnitures without room (floating) */}
+                    {floorPlan?.furnitures
+                        .filter(f => !f.room_layout_id)
+                        .map(furniture => renderFurniture(furniture, false))}
 
                     {/* Containers without room (floating) */}
                     {floorPlan?.containers
@@ -670,6 +824,37 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                         <div style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.85em', opacity: 0.7 }}>
                             {selectedContainerItems.items.length} objeto(s)
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Add Furniture Modal */}
+            {showAddFurniture && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200
+                }}>
+                    <div className="card" style={{ width: '90%', maxWidth: '300px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <h3 style={{ marginTop: 0 }}>Añadir Mueble al Plano</h3>
+                        {availableFurnitures.length === 0 ? (
+                            <p style={{ opacity: 0.7 }}>Todos los muebles ya están en el plano</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                {availableFurnitures.map(furniture => (
+                                    <button
+                                        key={furniture.id}
+                                        onClick={() => { handleAddFurniture(furniture.id); setShowAddFurniture(false); }}
+                                        style={{ background: 'var(--glass-border)', textAlign: 'left' }}
+                                    >
+                                        <strong>{furniture.name}</strong>
+                                        <br />
+                                        <small style={{ opacity: 0.7 }}>{furniture.spaceName}</small>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <button onClick={() => setShowAddFurniture(false)} style={{ marginTop: '1rem', width: '100%' }}>
+                            Cerrar
+                        </button>
                     </div>
                 </div>
             )}

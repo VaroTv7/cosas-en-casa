@@ -726,7 +726,13 @@ export default async function routes(fastify: FastifyInstance) {
             JOIN containers c ON cp.container_id = c.id
         `).all() as any[];
 
-        return { plan, rooms, containers };
+        const furnitures = db.prepare(`
+            SELECT fp.*, f.name as furniture_name, f.space_id as logic_space_id, f.icon as logic_icon
+            FROM furniture_positions fp
+            JOIN furnitures f ON fp.furniture_id = f.id
+        `).all() as any[];
+
+        return { plan, rooms, containers, furnitures };
     });
 
     fastify.put('/api/floor-plan', async (req: FastifyRequest<{ Body: { name?: string, width?: number, height?: number, background_color?: string } }>) => {
@@ -828,6 +834,48 @@ export default async function routes(fastify: FastifyInstance) {
     fastify.delete('/api/container-positions/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
         const { id } = req.params;
         const result = db.prepare('DELETE FROM container_positions WHERE id = ?').run(id);
+        if (result.changes === 0) return reply.status(404).send({ error: 'Posición no encontrada' });
+        return { success: true };
+    });
+
+    // --- Furniture Positions (v0.8.2) ---
+    fastify.post('/api/furniture-positions', async (req: FastifyRequest<{ Body: { furniture_id: number, room_layout_id?: number, x?: number, y?: number, width?: number, height?: number } }>, reply) => {
+        const { furniture_id, room_layout_id, x, y, width, height } = req.body;
+        if (!furniture_id) return reply.status(400).send({ error: 'furniture_id requerido' });
+
+        const existing = db.prepare('SELECT id FROM furniture_positions WHERE furniture_id = ?').get(furniture_id);
+        if (existing) return reply.status(400).send({ error: 'Este mueble ya tiene posición' });
+
+        const result = db.prepare(`
+            INSERT INTO furniture_positions (furniture_id, room_layout_id, x, y, width, height) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        `).run(furniture_id, room_layout_id || null, x || 10, y || 10, width || 60, height || 60);
+        return { id: result.lastInsertRowid };
+    });
+
+    fastify.put('/api/furniture-positions/:id', async (req: FastifyRequest<{ Params: { id: string }, Body: { room_layout_id?: number, x?: number, y?: number, width?: number, height?: number } }>, reply) => {
+        const { id } = req.params;
+        const { room_layout_id, x, y, width, height } = req.body;
+
+        const updates: string[] = [];
+        const values: any[] = [];
+        if (room_layout_id !== undefined) { updates.push('room_layout_id = ?'); values.push(room_layout_id); }
+        if (x !== undefined) { updates.push('x = ?'); values.push(x); }
+        if (y !== undefined) { updates.push('y = ?'); values.push(y); }
+        if (width !== undefined) { updates.push('width = ?'); values.push(width); }
+        if (height !== undefined) { updates.push('height = ?'); values.push(height); }
+
+        if (updates.length > 0) {
+            values.push(id);
+            const result = db.prepare(`UPDATE furniture_positions SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+            if (result.changes === 0) return reply.status(404).send({ error: 'Posición no encontrada' });
+        }
+        return { success: true };
+    });
+
+    fastify.delete('/api/furniture-positions/:id', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        const { id } = req.params;
+        const result = db.prepare('DELETE FROM furniture_positions WHERE id = ?').run(id);
         if (result.changes === 0) return reply.status(404).send({ error: 'Posición no encontrada' });
         return { success: true };
     });
