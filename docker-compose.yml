@@ -3,6 +3,7 @@ services:
     container_name: cosas-en-casa
     build: .
     restart: unless-stopped
+    network_mode: "bridge"
     ports:
       - "8110:8110"
     volumes:
