@@ -750,7 +750,7 @@ const FloorPlan: React.FC<Props> = ({ onSelectItem }) => {
                     background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200
                 }}>
                     <div className="card" style={{ width: '90%', maxWidth: '300px', maxHeight: '80vh', overflowY: 'auto' }}>
-                        <h3 style={{ marginTop: 0 }}>Añadir Mueble al Plano</h3>
+                        <h3 style={{ marginTop: 0 }}>Añadir Contenedor al Plano</h3>
                         {availableContainers.length === 0 ? (
                             <p style={{ opacity: 0.7 }}>Todos los muebles ya están en el plano</p>
                         ) : (
