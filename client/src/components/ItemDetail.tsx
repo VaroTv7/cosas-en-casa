@@ -201,6 +201,31 @@ const ItemDetail: React.FC<Props> = ({ item, onClose, onUpdate }) => {
 
                 {item.description && <p style={{ fontStyle: 'italic', marginBottom: '1rem' }}>"{item.description}"</p>}
 
+                {/* Location Path (Breadcrumbs) - v0.8.2 */}
+                <div style={{
+                    background: 'var(--primary-light)',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    marginBottom: '1rem',
+                    border: '1px solid var(--primary)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px'
+                }}>
+                    <div style={{ fontSize: '0.65em', textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.05em' }}>📍 Ubicación</div>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontWeight: 'bold', fontSize: '0.9em' }}>
+                        <span style={{ color: 'var(--accent)' }}>{item.space_name || 'Sin estancia'}</span>
+                        {item.furniture_name && (
+                            <>
+                                <ChevronRight size={12} opacity={0.5} />
+                                <span>{item.furniture_name}</span>
+                            </>
+                        )}
+                        <ChevronRight size={12} opacity={0.5} />
+                        <span style={{ color: 'var(--primary)' }}>{item.container_name || 'Sin contenedor'}</span>
+                    </div>
+                </div>
+
                 {/* Metadata Summary v0.4 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
                     {/* Ficha Técnica General */}

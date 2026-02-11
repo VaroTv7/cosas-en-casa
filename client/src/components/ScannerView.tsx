@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { Package, Box, Home, DollarSign, Tag, User, Book, Gamepad2, Laptop, ChevronRight, Shield, MapPin } from 'lucide-react';
 import type { Item, Container, Space, Category } from '../services/api';
-import { getItem, getInventory, getCategories } from '../services/api';
+import { getItemFull, getInventory, getCategories } from '../services/api';
 
 interface ScanResult {
     type: 'item' | 'container' | 'space';
@@ -73,7 +73,7 @@ const ScannerView: React.FC<Props> = ({ onSelectItem }) => {
             const inventory = await getInventory();
 
             if (parsed.type === 'item') {
-                const item = await getItem(parsed.id);
+                const item = await getItemFull(parsed.id);
                 setResult({ type: 'item', data: item });
             } else if (parsed.type === 'container') {
                 // Find container and its items
@@ -144,6 +144,31 @@ const ScannerView: React.FC<Props> = ({ onSelectItem }) => {
                 {item.description && (
                     <p style={{ opacity: 0.8, marginBottom: '1rem' }}>{item.description}</p>
                 )}
+
+                {/* Location Path (Breadcrumbs) */}
+                <div style={{
+                    background: 'var(--primary-light)',
+                    padding: '10px 15px',
+                    borderRadius: '8px',
+                    marginBottom: '1.5rem',
+                    border: '1px solid var(--primary)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                }}>
+                    <div style={{ fontSize: '0.7em', textTransform: 'uppercase', opacity: 0.7, letterSpacing: '0.05em' }}>📍 Ubicación de guardado</div>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontWeight: 'bold' }}>
+                        <span style={{ color: 'var(--accent)' }}>{item.space_name || 'Sin estancia'}</span>
+                        {item.furniture_name && (
+                            <>
+                                <ChevronRight size={14} opacity={0.5} />
+                                <span>{item.furniture_name}</span>
+                            </>
+                        )}
+                        <ChevronRight size={14} opacity={0.5} />
+                        <span style={{ color: 'var(--primary)' }}>{item.container_name || 'Sin contenedor'}</span>
+                    </div>
+                </div>
 
                 {/* Quick stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '1rem' }}>

@@ -85,6 +85,11 @@ export interface Item {
     loaned_to?: string;
     loaned_at?: string;
     min_quantity?: number;
+
+    // Location details (from JOINs)
+    container_name?: string;
+    furniture_name?: string;
+    space_name?: string;
 }
 
 export interface Category {

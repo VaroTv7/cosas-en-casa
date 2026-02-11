@@ -329,10 +329,15 @@ export default async function routes(fastify: FastifyInstance) {
 
         // Search items with location context
         const items = db.prepare(`
-            SELECT i.*, c.name as container_name, s.name as space_name
+            SELECT i.*, 
+                   c.name as container_name, 
+                   f.name as furniture_name,
+                   COALESCE(s_c.name, s_f.name) as space_name
             FROM items i
             LEFT JOIN containers c ON i.container_id = c.id
-            LEFT JOIN spaces s ON c.space_id = s.id
+            LEFT JOIN furnitures f ON c.furniture_id = f.id
+            LEFT JOIN spaces s_c ON c.space_id = s_c.id
+            LEFT JOIN spaces s_f ON f.space_id = s_f.id
             WHERE i.name LIKE ? 
                OR i.tags LIKE ? 
                OR i.description LIKE ? 
@@ -652,10 +657,22 @@ export default async function routes(fastify: FastifyInstance) {
 
     // ==================== v0.2 APIs ====================
 
-    // GET Item by ID with photos (Useful for QR scanning) - Enhanced
+    // GET Item by ID with photos (Useful for QR scanning) - Enhanced with location context
     fastify.get('/api/items/:id/full', async (req: FastifyRequest<{ Params: { id: string } }>, reply) => {
         const { id } = req.params;
-        const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id) as any;
+        const item = db.prepare(`
+            SELECT i.*, 
+                   c.name as container_name,
+                   f.name as furniture_name,
+                   COALESCE(s_c.name, s_f.name) as space_name
+            FROM items i
+            LEFT JOIN containers c ON i.container_id = c.id
+            LEFT JOIN furnitures f ON c.furniture_id = f.id
+            LEFT JOIN spaces s_c ON c.space_id = s_c.id
+            LEFT JOIN spaces s_f ON f.space_id = s_f.id
+            WHERE i.id = ?
+        `).get(id) as any;
+
         if (!item) return reply.status(404).send({ error: 'Ítem no encontrado' });
 
         const photos = db.prepare('SELECT * FROM item_photos WHERE item_id = ? ORDER BY is_primary DESC, id ASC').all(id);
