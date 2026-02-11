@@ -430,16 +430,19 @@ export const generateQRContent = (item: Item) => {
 
 export interface SearchResultItem extends Item {
     container_name?: string;
+    furniture_name?: string;
     space_name?: string;
 }
 
 export interface SearchResultContainer extends Container {
+    furniture_name?: string;
     space_name?: string;
 }
 
 export interface SearchResults {
     items: SearchResultItem[];
     containers: SearchResultContainer[];
+    furnitures: Furniture[];
     spaces: Space[];
 }
 

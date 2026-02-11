@@ -321,14 +321,15 @@ export default async function routes(fastify: FastifyInstance) {
         return { id: result.lastInsertRowid, photo_url };
     });
 
-    // Global Search (v0.6)
+    // Global Search (v0.6/v0.9.2)
     fastify.get('/api/search', async (req: FastifyRequest<{ Querystring: { q: string } }>) => {
         const { q } = req.query;
-        if (!q || q.trim().length < 2) return { items: [], containers: [], spaces: [] };
+        if (!q || q.trim().length < 2) return { items: [], containers: [], furnitures: [], spaces: [] };
 
         const searchTerm = `%${q.trim()}%`;
+        const literalSearch = q.trim();
 
-        // Search items with location context
+        // 1. Search items with location context
         const items = db.prepare(`
             SELECT i.*, 
                    c.name as container_name, 
@@ -347,24 +348,55 @@ export default async function routes(fastify: FastifyInstance) {
                OR i.serial_number LIKE ?
                OR i.loaned_to LIKE ?
                OR i.barcode = ?
-            LIMIT 20
-        `).all(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, q.trim());
+               -- v0.9.2: Search by location name
+               OR c.name LIKE ?
+               OR f.name LIKE ?
+               OR s_c.name LIKE ?
+               OR s_f.name LIKE ?
+            LIMIT 25
+        `).all(
+            searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, literalSearch,
+            searchTerm, searchTerm, searchTerm, searchTerm
+        );
 
-        // Search containers
+        // 2. Search containers
         const containers = db.prepare(`
-            SELECT c.*, s.name as space_name
+            SELECT c.*, 
+                   f.name as furniture_name,
+                   COALESCE(s.name, s_f.name) as space_name
             FROM containers c
             LEFT JOIN spaces s ON c.space_id = s.id
-            WHERE c.name LIKE ? OR c.description LIKE ?
+            LEFT JOIN furnitures f ON c.furniture_id = f.id
+            LEFT JOIN spaces s_f ON f.space_id = s_f.id
+            WHERE c.name LIKE ? 
+               OR c.description LIKE ?
+               -- v0.9.2: Match parent furniture/space
+               OR f.name LIKE ?
+               OR s.name LIKE ?
+               OR s_f.name LIKE ?
+            LIMIT 15
+        `).all(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+
+        // 3. Search furnitures (New in v0.9.2)
+        const furnitures = db.prepare(`
+            SELECT f.*, s.name as space_name
+            FROM furnitures f
+            LEFT JOIN spaces s ON f.space_id = s.id
+            WHERE f.name LIKE ? 
+               OR f.description LIKE ?
+               OR s.name LIKE ?
+            LIMIT 10
+        `).all(searchTerm, searchTerm, searchTerm);
+
+        // 4. Search spaces
+        const spaces = db.prepare(`
+            SELECT * FROM spaces 
+            WHERE name LIKE ? 
+               OR description LIKE ? 
             LIMIT 10
         `).all(searchTerm, searchTerm);
 
-        // Search spaces
-        const spaces = db.prepare(`
-            SELECT * FROM spaces WHERE name LIKE ? OR description LIKE ? LIMIT 10
-        `).all(searchTerm, searchTerm);
-
-        return { items, containers, spaces };
+        return { items, containers, furnitures, spaces };
     });
 
     // GET Item by ID (Useful for QR scanning)

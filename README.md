@@ -103,8 +103,13 @@ docker-compose up -d --build
 - [x] ~~Estadísticas de valor total del inventario.~~
 - [x] ~~Soporte para Códigos de Barras original (EAN/UPC).~~
 - [ ] Integración con OpenLibrary (Auto-rellenado por ISBN).
-- [ ] Modo multi-vivienda.
 - [ ] PWA (Progressive Web App) para instalación en móvil.
+- [ ] **FloorPlan 2.0**: Dibujo avanzado de estancias y jerarquía visual basada en muebles.
+- [ ] **Historial de Movimientos**: Registro detallado de cambios de ubicación.
+- [ ] **Etiquetas PDF**: Generación de etiquetas listas para imprimir.
+- [ ] **Alertas de Caducidad**: Notificaciones para fechas críticas y garantías.
+- [ ] **IA Auto-Tagging**: Reconocimiento automático de objetos mediante imágenes.
+- [ ] Modo multi-vivienda.
 
 ## 📰 Changelog
 

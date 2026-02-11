@@ -174,14 +174,14 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
                         top: '100%',
                         left: 0,
                         right: 0,
-                        maxHeight: '400px',
+                        maxHeight: '450px',
                         overflowY: 'auto',
-                        background: 'var(--surface)',
+                        background: '#0f172a', // Solid dark background to fix transparency
                         borderRadius: '0 0 12px 12px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
                         borderTop: 'none',
-                        zIndex: 100,
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                        zIndex: 1000, // Higher z-index
+                        boxShadow: '0 15px 40px rgba(0,0,0,0.7)'
                     }}>
                         {searchResults.items.length === 0 && searchResults.containers.length === 0 && searchResults.spaces.length === 0 ? (
                             <div style={{ padding: '20px', textAlign: 'center', opacity: 0.6 }}>
@@ -226,8 +226,9 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
                                                     <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>{item.name}</div>
                                                     <div style={{ fontSize: '0.8em', opacity: 0.6, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         <MapPin size={12} />
-                                                        {item.container_name || 'Sin contenedor'}
-                                                        {item.space_name && <span> · {item.space_name}</span>}
+                                                        <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{item.space_name}</span>
+                                                        {item.furniture_name && <span> · {item.furniture_name}</span>}
+                                                        {item.container_name && <span> · {item.container_name}</span>}
                                                     </div>
                                                 </div>
                                                 {item.loaned_to && (
@@ -240,28 +241,71 @@ const DashboardView: React.FC<Props> = ({ inventory, onSelectItem }) => {
                                     </div>
                                 )}
 
-                                {/* Containers */}
-                                {searchResults.containers.length > 0 && (
+                                {/* Furnitures (v0.9.2) */}
+                                {searchResults.furnitures && searchResults.furnitures.length > 0 && (
                                     <div>
-                                        <div style={{ padding: '8px 14px', fontSize: '0.8em', opacity: 0.5, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                            Contenedores ({searchResults.containers.length})
+                                        <div style={{ padding: '8px 14px', fontSize: '0.8em', opacity: 0.5, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                                            Muebles ({searchResults.furnitures.length})
                                         </div>
-                                        {searchResults.containers.map(c => (
+                                        {searchResults.furnitures.map(f => (
                                             <div
-                                                key={`container-${c.id}`}
+                                                key={`furniture-${f.id}`}
+                                                onClick={() => navigate('/database?tab=furnitures')}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     gap: '12px',
                                                     padding: '12px 14px',
                                                     cursor: 'pointer',
-                                                    borderBottom: '1px solid rgba(255,255,255,0.05)'
+                                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                    transition: 'background 0.15s'
                                                 }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                             >
-                                                <Box size={20} style={{ opacity: 0.7 }} />
-                                                <div>
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Box size={18} color="var(--accent)" />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 'bold' }}>{f.name}</div>
+                                                    <div style={{ fontSize: '0.8em', opacity: 0.6 }}>{f.space_name || 'Sin espacio'}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Containers */}
+                                {searchResults.containers.length > 0 && (
+                                    <div>
+                                        <div style={{ padding: '8px 14px', fontSize: '0.8em', opacity: 0.5, borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+                                            Contenedores ({searchResults.containers.length})
+                                        </div>
+                                        {searchResults.containers.map(c => (
+                                            <div
+                                                key={`container-${c.id}`}
+                                                onClick={() => navigate('/database?tab=containers')}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px',
+                                                    padding: '12px 14px',
+                                                    cursor: 'pointer',
+                                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                                    transition: 'background 0.15s'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                            >
+                                                <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Box size={18} />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
                                                     <div style={{ fontWeight: 'bold' }}>{c.name}</div>
-                                                    <div style={{ fontSize: '0.8em', opacity: 0.6 }}>{c.space_name || 'Sin espacio'}</div>
+                                                    <div style={{ fontSize: '0.8em', opacity: 0.6, display: 'flex', gap: '4px' }}>
+                                                        <span style={{ color: 'var(--primary)' }}>{c.space_name}</span>
+                                                        {c.furniture_name && <span> · {c.furniture_name}</span>}
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
